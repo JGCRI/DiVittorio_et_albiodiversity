@@ -1,0 +1,12 @@
+"Scenario","Protected_or_Unavailable_land_km2","Protected_or_Unavailable_percent_land","Protected_percent_land","Unsuitable_and_Unprotected_percent_land","Suitable_Protected_land_km2","Suitable_Protected_percent_land","Unsuitable_land_km2","Unsuitable_percent_land"
+"Minimum protected land",48368064.5425708,37.23,37.23,0,NA,NA,NA,NA
+"Minimum protected land plus default protection",50096068.5917939,38.56,38.56,0,NA,NA,NA,NA
+"Minimum protected land plus default unavailable",70887182.5922507,54.56,38.56,16,21356430.2831945,16.44,49530752.4147469,38.12
+"Protection away from land use",35373276.2842611,27.22,27.22,0,NA,NA,NA,NA
+"Protection away from land use plus default protection",39978672.0482283,30.77,30.77,0,NA,NA,NA,NA
+"Protection away from land use plus default unavailable",67322621.3075972,51.81,30.77,21.04,17791868.9923165,13.69,49530752.4147469,38.12
+"Thirty percent uniform protection",26954897.5316958,20.75,20.75,0,NA,NA,NA,NA
+"Thirty percent uniform protection plus default protection",39143952.8339163,30.13,30.13,0,NA,NA,NA,NA
+"Thirty percent uniform protection plus default unavailable",74608447.9317338,57.42,30.13,27.29,23376244.5255681,17.99,49530752.4147469,38.12
+"Current protection",12189055.3026109,9.38,9.38,0,NA,NA,NA,NA
+"Current protection plus unsuitable unprotected (default unavailble)",56727421.7616227,43.66,9.38,34.28,7196669.88567441,5.54,49530752.4147469,38.12
