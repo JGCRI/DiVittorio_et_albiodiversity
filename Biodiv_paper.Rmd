@@ -1,0 +1,395 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r, get libraries, schemes}
+library(rgcam)
+library(dplyr)
+library(ggplot2)
+library(gcamdata)
+library(sf)
+library(ggsci)
+
+print(paste0("Current working directory is - ",getwd()))
+
+scheme_basic <- theme_bw() +
+  theme(legend.text = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(axis.text = element_text(size = 18)) +
+  theme(axis.title = element_text(size = 18, face = "bold")) +
+  theme(plot.title = element_text(size = 15, face = "bold", vjust = 1)) +
+  theme(plot.subtitle = element_text(size = 9, face = "bold", vjust = 1))+
+  theme(strip.text = element_text(size = 7))+
+  theme(strip.text.x = element_text(size = 10, face = "bold"))+
+  theme(strip.text.y = element_text(size = 15, face = "bold"))+
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(size = 12))+
+  theme(legend.title = element_text(size = 12,color = "black",face="bold"))+
+  theme(axis.text.x= element_text(hjust=1,angle=90))+
+  theme(legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black"))
+```
+```{r, Get data}
+
+
+GCAM_default <- rgcam::loadProject("outputs/project_files/tables_gcam_default.proj")
+GCAM_defaultNZ <- rgcam::loadProject("outputs/project_files/tables_gcam_defaultNZ.proj")
+Allansce1 <- rgcam::loadProject("outputs/project_files/tables_allansce1.proj")
+Allansce1NZ <- rgcam::loadProject("outputs/project_files/tables_allansce1nz.proj")
+Allansce2 <- rgcam::loadProject("outputs/project_files/tables_allansce2.proj")
+Allansce2NZ <- rgcam::loadProject("outputs/project_files/tables_allansce2nz.proj")
+perc30 <- rgcam::loadProject("outputs/project_files/tables_30perc.proj")
+perc30NZ <- rgcam::loadProject("outputs/project_files/tables_30percnz.proj")
+
+```
+
+
+```{r, Crop prices}
+
+
+crop_prices <- GCAM_defaultNZ$Reference$`ag commodity prices` %>% mutate(scenario="Baseline") %>% 
+  bind_rows(Allansce1NZ$Reference$`ag commodity prices` %>% mutate(scenario="1. BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`ag commodity prices` %>% mutate(scenario="2. BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`ag commodity prices` %>% mutate(scenario="3. UNIFORM30"))
+
+write.csv(crop_prices,"outputs/csv/Fig1_Crop_Prices.csv")
+
+crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+
+
+crop_prices %>% 
+  filter(scenario != "Baseline") %>% 
+  filter(year>2015) %>% 
+  left_join(crop_prices_2015) %>% 
+  #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
+  filter(sector %in% c("Corn","Biomass","Wheat",
+                       "Rice","biomass","Soybean","SugarCrop","OilPalm")) %>% 
+  #select(-marginal_cost) %>% 
+  #spread(scenario, value) %>% 
+  mutate(diff=((value- value_2015)/value_2015)*100)->crop_marginal_cost
+
+
+g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
+                                               !region %in% c("Central America and Caribbean")) , aes(x=sector,y=diff))+
+  geom_boxplot(aes(color=scenario))+
+  #geom_jitter(aes(color=scenario),show.legend = TRUE,size=2)+
+  scale_color_nejm()+
+  #ylim(-15,25)+
+  scale_shape_manual(values= c(0))+
+  scale_alpha_manual(values = c(0.1, 1)) +
+  facet_wrap(~year)+
+  xlab(" Commoditty")+
+  ylab("% difference between protection scenario and baseline LCT")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'1. Crop_prices','.png'),width = 10.5, height = 10)
+
+
+```
+
+
+```{r, Meat and Dairy prices}
+
+crop_prices <- GCAM_defaultNZ$Reference$`meat and dairy prices` %>% mutate(scenario="Baseline") %>% 
+  bind_rows(Allansce1NZ$Reference$`meat and dairy prices` %>% mutate(scenario="1. BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`meat and dairy prices` %>% mutate(scenario="2. BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`meat and dairy prices` %>% mutate(scenario="3. UNIFORM30"))
+
+write.csv(crop_prices,"outputs/csv/Fig2_Meat_Dairy.csv")
+
+crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+
+
+crop_prices %>% 
+  filter(scenario != "Baseline") %>% 
+  filter(year>2015) %>% 
+  left_join(crop_prices_2015) %>% 
+  #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
+  #select(-marginal_cost) %>% 
+  #spread(scenario, value) %>% 
+  mutate(diff=((value- value_2015)/value_2015)*100)->crop_marginal_cost
+
+
+g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
+                                               !region %in% c("Central America and Caribbean")) , aes(x=sector,y=diff))+
+  geom_boxplot(aes(color=scenario))+
+  #geom_jitter(aes(color=scenario),show.legend = TRUE,size=2)+
+  scale_color_nejm()+
+  #ylim(-15,25)+
+  scale_shape_manual(values= c(0))+
+  scale_alpha_manual(values = c(0.1, 1)) +
+  facet_wrap(~year)+
+  xlab(" Commoditty")+
+  ylab("% difference between protection scenario and baseline LCT")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'2. Meat&Dairy_prices','.png'),width = 10.5, height = 10)
+
+```
+
+```{r,CO2 Prices absolute}
+
+crop_prices <- GCAM_defaultNZ$Reference$`CO2 prices` %>% mutate(scenario="Baseline") %>% 
+  bind_rows(Allansce1NZ$Reference$`CO2 prices` %>% mutate(scenario="1. BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`CO2 prices` %>% mutate(scenario="2. BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`CO2 prices` %>% mutate(scenario="3. UNIFORM30"))
+
+write.csv(crop_prices,"outputs/csv/Fig3A_CO2_prices.csv")
+
+
+crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+
+
+crop_prices %>% 
+  filter(scenario != "Baseline") %>% 
+  filter(year>2015) %>% 
+  left_join(crop_prices_2015) %>% 
+  #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
+  #filter(sector %in% c("Corn","Forest","Biomass","Wheat",
+  #                     "Rice","biomass","Soybean","SugarCrop","OilPalm")) %>% 
+  #select(-marginal_cost) %>% 
+  #spread(scenario, value) %>% 
+  mutate(diff=((value- value_2015)))->crop_marginal_cost
+
+
+g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100)) , aes(x=year,y=diff))+
+  geom_boxplot(aes(group=paste0(year,scenario),color=scenario))+
+  #geom_point(aes(color=scenario),show.legend = TRUE,size=2)+
+  scale_color_nejm()+
+  #ylim(-15,25)+
+  scale_shape_manual(values= c(0))+
+  scale_alpha_manual(values = c(0.1, 1)) +
+  #facet_wrap(~year)+
+  xlab(" Region")+
+  ylab("difference in $T/co2 between protection scenario and baseline LCT")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'3A. CO2_prices_abs','.png'),width = 10.5, height = 10)
+```
+
+```{rCO2 Prices percent}
+
+crop_prices <- GCAM_defaultNZ$Reference$`CO2 prices` %>% mutate(scenario="Baseline") %>% 
+  bind_rows(Allansce1NZ$Reference$`CO2 prices` %>% mutate(scenario="1. BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`CO2 prices` %>% mutate(scenario="2. BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`CO2 prices` %>% mutate(scenario="3. UNIFORM30"))
+
+write.csv(crop_prices,"outputs/csv/Fig3A_CO2_prices.csv")
+
+
+crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+
+
+crop_prices %>% 
+  filter(scenario != "Baseline") %>% 
+  filter(year>2015) %>% 
+  left_join(crop_prices_2015) %>% 
+  #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
+  #filter(sector %in% c("Corn","Forest","Biomass","Wheat",
+  #                     "Rice","biomass","Soybean","SugarCrop","OilPalm")) %>% 
+  #select(-marginal_cost) %>% 
+  #spread(scenario, value) %>% 
+  mutate(diff=((value- value_2015)/value_2015))->crop_marginal_cost
+
+
+g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100)) , aes(x=year,y=diff*100))+
+  geom_boxplot(aes(group=paste0(year,scenario),color=scenario))+
+  #geom_point(aes(color=scenario),show.legend = TRUE,size=2)+
+  scale_color_nejm()+
+  #ylim(-15,25)+
+  scale_shape_manual(values= c(0))+
+  scale_alpha_manual(values = c(0.1, 1)) +
+  #facet_wrap(~year)+
+  xlab(" Region")+
+  ylab("difference in % between protection scenario and baseline LCT")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'3B. CO2_prices_percent','.png'),width = 10.5, height = 10)
+```
+```{r,fig.width=10,fig.height=10}
+
+Profit_rate <- getQuery(GCAM_default, "profit rate") %>%
+               mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV default")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 default")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 default")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. GCAM default LCT")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30")) %>%
+  filter(grepl("Protected",landleaf))
+
+
+
+Profit_rate_unmanaged <- getQuery(GCAM_default, "profit rate") %>%
+               mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV default")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 default")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 default")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. GCAM default LCT")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30")) %>%
+  filter(grepl("Unmanaged|Grassland|Shrubland",landleaf),
+         !grepl("Protected|Unsuitable",landleaf)) %>% 
+ rename(unmanaged=value) %>% 
+ mutate(landleaf=paste0("Protected",landleaf))    
+ 
+ Profit_rate %>% 
+     left_join(Profit_rate_unmanaged) %>% 
+      mutate(ratio=value/unmanaged)->increase_in_costs
+ 
+ 
+write.csv(Profit_rate, "outputs/csv/Fig4_Protected_area_profitrates.csv")
+
+#increase_in_costs %>% filter(!grepl("default",scenario))->increase_in_costs
+
+g <- ggplot(data=increase_in_costs %>% filter(year>2015), aes(x=year,y=ratio),show.legend=F)+
+     geom_boxplot(aes(group=paste0(year,scenario)),outlier.shape = NA)+
+     geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+                                                 region=="Brazil"), aes(x=year,y=ratio,color="Land rent for protecting the Forests in Amazon basin in Brazil "),linetype="dashed",size=1.3,show.legend = T)+
+  geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedShrubland_AusInt",landleaf),
+                                              region=="Australia_NZ"), aes(x=year,y=ratio,color="Land rent for protecting Shrubland in Australia"),linetype="dashed",size=1.3,show.legend = T)+
+  geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+                                              region=="South America_Southern"), aes(x=year,y=ratio,color="Land rent for protecting  Forests in Southern South America"),linetype="dashed",size=1.3,show.legend = T)+
+  geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedUnmanagedForest_CongoR",landleaf),
+                                              region=="Africa_Western"), aes(x=year,y=ratio,color="Land rent for protecting Forests in the Congo basin"),linetype="dashed",size=1.3,show.legend = T)+
+  facet_wrap(~scenario,scales="free")+
+     ylim(0,5)+
+     ylab("Protected land rent relative to Unmanaged land rent")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'4. Protected_area_land_rent','.png'),width = 15, height = 10)
+
+```
+```{r}
+
+
+Profit_rate <- getQuery(GCAM_default, "profit rate") %>%
+               mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV default")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 default")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 default")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. GCAM")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30")) %>%
+  filter(grepl("Protected",landleaf))
+
+
+
+Profit_rate_2015_NZ <-  getQuery(GCAM_defaultNZ, "profit rate") %>%
+    mutate(scenario="1. GCAM default") %>%
+    #filter(year==2015) %>%
+    filter(grepl("Protected",landleaf)) %>% select(-scenario) %>% rename(value_2015=value)
+    
+
+ 
+Profit_rate %>% filter(!grepl("default",scenario)) %>%  left_join(Profit_rate_2015_NZ) %>%
+    mutate(ratio=value/value_2015)->increase_in_costs_NZ 
+ 
+
+g <- ggplot(data=increase_in_costs_NZ %>% filter(year>2015,ratio>=1), aes(x=year,y=ratio),show.legend=F)+
+     geom_boxplot(aes(group=paste0(year,scenario)),outlier.shape = NA)+
+     geom_line(data=increase_in_costs_NZ %>% filter(year>2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+                                                 region=="Brazil"), aes(x=year,y=ratio,color="Land rent for protecting the Forests in Amazon basin in Brazil "),linetype="dashed",size=1.3,show.legend = T)+
+  geom_line(data=increase_in_costs_NZ %>% filter(year>2015,grepl("ProtectedShrubland_AusInt",landleaf),
+                                              region=="Australia_NZ"), aes(x=year,y=ratio,color="Land rent for protecting Shrubland in Australia"),linetype="dashed",size=1.3,show.legend = T)+
+  geom_line(data=increase_in_costs_NZ %>% filter(year>2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+                                              region=="South America_Southern"), aes(x=year,y=ratio,color="Land rent for protecting  Forests in Southern South America"),linetype="dashed",size=1.3,show.legend = T)+
+  geom_line(data=increase_in_costs_NZ %>% filter(year>2015,grepl("ProtectedUnmanagedForest_CongoR",landleaf),
+                                              region=="Africa_Western"), aes(x=year,y=ratio,color="Land rent for protecting Forests in the Congo basin"),linetype="dashed",size=1.3,show.legend = T)+
+  facet_wrap(~scenario,scales="free")+
+     ylim(1,1.25)+
+     ylab("Protected land rent index (Relative to GCAM default NZ)")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'5. Protected_area_land_rent','.png'),width = 15, height = 10)
+ 
+```
+
+
+```{r}
+
+Protected_Land <- getQuery(GCAM_default, "detailed land allocation") %>%
+  mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="2. BIODIV")) %>%
+  bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="3. BIODIV30")) %>%
+  bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30")) %>%
+  filter(grepl("Protected",landleaf))
+
+Protected_Land %>%
+  group_by(year,scenario) %>%
+  summarize(prot_value=sum(value))->tot_prot_land
+
+
+Tot_Land <- getQuery(GCAM_default, "detailed land allocation") %>%
+    mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="2. BIODIV")) %>%
+    bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="3. BIODIV30")) %>%
+    bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30"))
+
+
+Tot_Land %>%
+    group_by(year,scenario) %>%
+    summarize(tot_value=sum(value)) %>%
+    left_join(tot_prot_land)->tot_land
+
+g <- ggplot(data=tot_land %>% filter(year>=2020), aes(x=year,y=(prot_value/tot_value)*100,color=scenario))+
+    geom_line(size=1.3)+
+    scale_color_npg()+
+    ylab("Suitable protected Land as a % of total land")+
+    ylim(0,25)
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'6. Suitable_Protected_Land','.png'),width = 15, height = 10)
+```
+
+```{r}
+
+
+Protected_Land <- getQuery(GCAM_default, "detailed land allocation") %>%
+  mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="2. BIODIV")) %>%
+  bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="3. BIODIV30")) %>%
+  bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30")) %>%
+  filter(grepl("Protected|Unsuitable|Tundra|RockIceDesert",landleaf))
+
+Protected_Land %>%
+  group_by(year,scenario) %>%
+  summarize(prot_value=sum(value))->tot_prot_land
+
+
+Tot_Land <- getQuery(GCAM_default, "detailed land allocation") %>%
+    mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="2. BIODIV")) %>%
+    bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="3. BIODIV30")) %>%
+    bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30"))
+
+
+Tot_Land %>%
+    group_by(year,scenario) %>%
+    summarize(tot_value=sum(value)) %>%
+    left_join(tot_prot_land)->tot_land
+
+g <- ggplot(data=tot_land %>% filter(year>=2020), aes(x=year,y=(prot_value/tot_value)*100,color=scenario))+
+    geom_line(size=1.3)+
+    scale_color_npg()+
+    ylab("Unavailable Land as a % of total land")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/",'7. Unavailable','.png'),width = 15, height = 10)
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
