@@ -1,0 +1,24 @@
+Package: biodiv_paper
+Title: biodiv_paper
+Version: 0
+Authors@R: c(person(given='Kanishka', family='Narayan', email='kanishka.narayan@pnnl.gov', role=c('aut','cre')))
+Description: Alan's biodiv paper analysis
+Depends: R (>= 3.5.0)
+License: BSD2
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    dplyr (>= 0.7),
+    nleqslv (>= 3.2),
+    reshape2 (>= 1.4.3),
+    ggplot2 (>= 2.2.1),
+    cluster (>= 2.0),
+    tidyr  (>= 0.7.1),
+    rmarkdown
+RoxygenNote: 7.1.1
+Suggests: 
+    shiny (>= 1.0),
+    testthat,
+    knitr,
+    pkgdown
+VignetteBuilder: knitr
