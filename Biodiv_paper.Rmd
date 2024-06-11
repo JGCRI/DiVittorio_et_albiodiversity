@@ -11,9 +11,10 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 library(rgcam)
 library(dplyr)
 library(ggplot2)
-library(gcamdata)
+#library(gcamdata)
 library(sf)
 library(ggsci)
+library(viridis)
 
 print(paste0("Current working directory is - ",getwd()))
 
@@ -53,26 +54,28 @@ perc30NZ <- rgcam::loadProject("outputs/project_files/tables_30percnz.proj")
 
 
 crop_prices <- GCAM_defaultNZ$Reference$`ag commodity prices` %>% mutate(scenario="Baseline") %>% 
-  bind_rows(Allansce1NZ$Reference$`ag commodity prices` %>% mutate(scenario="1. BIODIV")) %>% 
-  bind_rows(Allansce2NZ$Reference$`ag commodity prices` %>% mutate(scenario="2. BIODIV30")) %>%
-  bind_rows(perc30NZ$Reference$`ag commodity prices` %>% mutate(scenario="3. UNIFORM30"))
+  bind_rows(Allansce1NZ$Reference$`ag commodity prices` %>% mutate(scenario="BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`ag commodity prices` %>% mutate(scenario="BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`ag commodity prices` %>% mutate(scenario="UNIFORM30"))
 
 write.csv(crop_prices,"outputs/csv/Fig1_Crop_Prices.csv")
 
-crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+crop_prices_baseline<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_baseline=value) %>% select(-scenario)
 
+# these need to be in order
+plot_crops = c("Biomass","Corn","OilPalm","Rice","Soybean","SugarCrop","Wheat")
 
 crop_prices %>% 
   filter(scenario != "Baseline") %>% 
   filter(year>2015) %>% 
-  left_join(crop_prices_2015) %>% 
+  left_join(crop_prices_baseline) %>% 
   #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
-  filter(sector %in% c("Corn","Biomass","Wheat",
-                       "Rice","biomass","Soybean","SugarCrop","OilPalm")) %>% 
+  filter(sector %in% c(plot_crops, "biomass")) %>% 
   #select(-marginal_cost) %>% 
   #spread(scenario, value) %>% 
-  mutate(diff=((value- value_2015)/value_2015)*100)->crop_marginal_cost
+  mutate(diff=((value- value_baseline)/value_baseline)*100)->crop_marginal_cost
 
+crop_marginal_cost$sector[crop_marginal_cost$sector=="biomass"] = "Biomass"
 
 g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
                                                !region %in% c("Central America and Caribbean")) , aes(x=sector,y=diff))+
@@ -82,13 +85,43 @@ g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
   #ylim(-15,25)+
   scale_shape_manual(values= c(0))+
   scale_alpha_manual(values = c(0.1, 1)) +
-  facet_wrap(~year)+
-  xlab(" Commoditty")+
-  ylab("% difference between protection scenario and baseline LCT")
+  facet_wrap(~year, labeller=labeller(year = c('2030'="a) 2030", '2050'="b) 2050", '2075'="c) 2075", '2100'="d) 2100"))) +
+  xlab("Commodity")+
+  ylab("% difference between protection scenario and CURRENT")
 
 g+scheme_basic
 
 ggsave( paste0("outputs/images/",'1. Crop_prices','.png'),width = 10.5, height = 10)
+
+# write these boxplot stats to a file - format it for easier access
+# colour is the scenario, PANEL is the year, group denotes the scenario and commodity
+plot_df = data.frame(ggplot_build(g)[[1]])
+
+# panel ids are the indices of panel_names
+panel_names = c(2030, 2050, 2075, 2100)
+# map colour to scenarios
+scenario_names = c("BIODIV", "BIODIV30", "UNIFORM30")
+# map groups to scenario and year
+group_vals = plot_df$group
+group_scen_names = rep(c("BIODIV", "BIODIV30", "UNIFORM30"), 7)
+group_commodity = c(rep(plot_crops[1],3), rep(plot_crops[2],3), rep(plot_crops[3],3), rep(plot_crops[4],3), rep(plot_crops[5],3), rep(plot_crops[6],3), rep(plot_crops[7],3))
+
+plot_df = plot_df[,c("colour", "PANEL", "group", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
+   
+# ymin/max_final is the true min/max; ymin/max is the 1.5*IQR value; lower/upper is the 25%/75$% qurtile; middle is the median
+names(plot_df) <- c("Scenario", "Year", "commodity", "min", "low_1.5*IQR", "Q25", "median", "Q75", "hi_1.5*IQR", "max")
+plot_df$Year <- as.character(plot_df$Year)
+for (i in 1:length(group_vals)){
+  	plot_df$Scenario[which(plot_df$commodity == group_vals[i])] = group_scen_names[i]
+   	plot_df$commodity[which(plot_df$commodity == group_vals[i])] = group_commodity[i]
+}
+for (i in 1:length(panel_names)){
+   	plot_df$Year[which(plot_df$Year == i)] = panel_names[i]
+}
+plot_df = plot_df[order(plot_df$Year, plot_df$commodity),]
+
+# write the region box plot summary
+write.csv(plot_df,'outputs/csv/Fig1_Crop_Prices_boxplot.csv')
 
 
 ```
@@ -97,23 +130,25 @@ ggsave( paste0("outputs/images/",'1. Crop_prices','.png'),width = 10.5, height =
 ```{r, Meat and Dairy prices}
 
 crop_prices <- GCAM_defaultNZ$Reference$`meat and dairy prices` %>% mutate(scenario="Baseline") %>% 
-  bind_rows(Allansce1NZ$Reference$`meat and dairy prices` %>% mutate(scenario="1. BIODIV")) %>% 
-  bind_rows(Allansce2NZ$Reference$`meat and dairy prices` %>% mutate(scenario="2. BIODIV30")) %>%
-  bind_rows(perc30NZ$Reference$`meat and dairy prices` %>% mutate(scenario="3. UNIFORM30"))
+  bind_rows(Allansce1NZ$Reference$`meat and dairy prices` %>% mutate(scenario="BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`meat and dairy prices` %>% mutate(scenario="BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`meat and dairy prices` %>% mutate(scenario="UNIFORM30"))
 
 write.csv(crop_prices,"outputs/csv/Fig2_Meat_Dairy.csv")
 
-crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+crop_prices_baseline<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_baseline=value) %>% select(-scenario)
 
+# these need to be in order, which is c("Beef","Dairy","Pork","Poultry","SheepGoat")
+plot_livestock = unique(crop_prices$sector)
 
 crop_prices %>% 
   filter(scenario != "Baseline") %>% 
   filter(year>2015) %>% 
-  left_join(crop_prices_2015) %>% 
+  left_join(crop_prices_baseline) %>% 
   #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
   #select(-marginal_cost) %>% 
   #spread(scenario, value) %>% 
-  mutate(diff=((value- value_2015)/value_2015)*100)->crop_marginal_cost
+  mutate(diff=((value- value_baseline)/value_baseline)*100)->crop_marginal_cost
 
 
 g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
@@ -124,42 +159,72 @@ g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
   #ylim(-15,25)+
   scale_shape_manual(values= c(0))+
   scale_alpha_manual(values = c(0.1, 1)) +
-  facet_wrap(~year)+
-  xlab(" Commoditty")+
-  ylab("% difference between protection scenario and baseline LCT")
+  facet_wrap(~year, labeller=labeller(year = c('2030'="a) 2030", '2050'="b) 2050", '2075'="c) 2075", '2100'="d) 2100")))+
+  xlab("Commodity")+
+  ylab("% difference between protection scenario and CURRENT")
 
 g+scheme_basic
 
 ggsave( paste0("outputs/images/",'2. Meat&Dairy_prices','.png'),width = 10.5, height = 10)
+
+# write these boxplot stats to a file - format it for easier access
+# colour is the scenario, PANEL is the year, group denotes the scenario and commodity
+plot_df = data.frame(ggplot_build(g)[[1]])
+
+# panel ids are the indices of panel_names
+panel_names = c(2030, 2050, 2075, 2100)
+# map colour to scenarios
+scenario_names = c("BIODIV", "BIODIV30", "UNIFORM30")
+# map groups to scenario and year
+group_vals = plot_df$group
+group_scen_names = rep(c("BIODIV", "BIODIV30", "UNIFORM30"), 7)
+group_commodity = c(rep(plot_livestock[1],3), rep(plot_livestock[2],3), rep(plot_livestock[3],3), rep(plot_livestock[4],3), rep(plot_livestock[5],3), rep(plot_livestock[6],3), rep(plot_crops[7],3))
+
+plot_df = plot_df[,c("colour", "PANEL", "group", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
+   
+# ymin/max_final is the true min/max; ymin/max is the 1.5*IQR value; lower/upper is the 25%/75$% qurtile; middle is the median
+names(plot_df) <- c("Scenario", "Year", "commodity", "min", "low_1.5*IQR", "Q25", "median", "Q75", "hi_1.5*IQR", "max")
+plot_df$Year <- as.character(plot_df$Year)
+for (i in 1:length(group_vals)){
+  	plot_df$Scenario[which(plot_df$commodity == group_vals[i])] = group_scen_names[i]
+   	plot_df$commodity[which(plot_df$commodity == group_vals[i])] = group_commodity[i]
+}
+for (i in 1:length(panel_names)){
+   	plot_df$Year[which(plot_df$Year == i)] = panel_names[i]
+}
+plot_df = plot_df[order(plot_df$Year, plot_df$commodity),]
+
+# write the region box plot summary
+write.csv(plot_df,'outputs/csv/Fig2_Meat_Dairy_boxplot.csv')
 
 ```
 
 ```{r,CO2 Prices absolute}
 
 crop_prices <- GCAM_defaultNZ$Reference$`CO2 prices` %>% mutate(scenario="Baseline") %>% 
-  bind_rows(Allansce1NZ$Reference$`CO2 prices` %>% mutate(scenario="1. BIODIV")) %>% 
-  bind_rows(Allansce2NZ$Reference$`CO2 prices` %>% mutate(scenario="2. BIODIV30")) %>%
-  bind_rows(perc30NZ$Reference$`CO2 prices` %>% mutate(scenario="3. UNIFORM30"))
+  bind_rows(Allansce1NZ$Reference$`CO2 prices` %>% mutate(scenario="BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`CO2 prices` %>% mutate(scenario="BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`CO2 prices` %>% mutate(scenario="UNIFORM30"))
 
 write.csv(crop_prices,"outputs/csv/Fig3A_CO2_prices.csv")
 
 
-crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+crop_prices_baseline<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_baseline=value) %>% select(-scenario)
 
 
 crop_prices %>% 
   filter(scenario != "Baseline") %>% 
   filter(year>2015) %>% 
-  left_join(crop_prices_2015) %>% 
+  left_join(crop_prices_baseline) %>% 
   #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
   #filter(sector %in% c("Corn","Forest","Biomass","Wheat",
   #                     "Rice","biomass","Soybean","SugarCrop","OilPalm")) %>% 
   #select(-marginal_cost) %>% 
   #spread(scenario, value) %>% 
-  mutate(diff=((value- value_2015)))->crop_marginal_cost
+  mutate(diff=((value- value_baseline)))->crop_marginal_cost
 
 
-g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100)) , aes(x=year,y=diff))+
+g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100)) , aes(x=factor(year),y=diff))+
   geom_boxplot(aes(group=paste0(year,scenario),color=scenario))+
   #geom_point(aes(color=scenario),show.legend = TRUE,size=2)+
   scale_color_nejm()+
@@ -167,40 +232,69 @@ g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100))
   scale_shape_manual(values= c(0))+
   scale_alpha_manual(values = c(0.1, 1)) +
   #facet_wrap(~year)+
-  xlab(" Region")+
-  ylab("difference in $T/co2 between protection scenario and baseline LCT")
+  xlab("Region")+
+  ylab("difference in $/T CO2 between protection scenario and CURRENT")
 
 g+scheme_basic
 
 ggsave( paste0("outputs/images/",'3A. CO2_prices_abs','.png'),width = 10.5, height = 10)
+
+# write these boxplot stats to a file - format it for easier access
+# colour is the scenario, group denotes the scenario and year
+plot_df = data.frame(ggplot_build(g)[[1]])
+
+# map colour to scenarios
+scenario_names = c("BIODIV", "BIODIV30", "UNIFORM30")
+# map groups to scenario and year
+group_vals = plot_df$group
+group_scen_names = rep(c("BIODIV", "BIODIV30", "UNIFORM30"), 4)
+group_year = c(rep(2030,3), rep(2050,3), rep(2075,3), rep(2100,3))
+
+plot_df = plot_df[,c("colour", "group", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
+   
+# ymin/max_final is the true min/max; ymin/max is the 1.5*IQR value; lower/upper is the 25%/75$% qurtile; middle is the median
+names(plot_df) <- c("Scenario", "Year", "min", "low_1.5*IQR", "Q25", "median", "Q75", "hi_1.5*IQR", "max")
+#plot_df$Year <- as.character(plot_df$Year)
+for (i in 1:length(group_vals)){
+  	plot_df$Scenario[which(plot_df$Year == group_vals[i])] = group_scen_names[i]
+   	plot_df$Year[which(plot_df$Year == group_vals[i])] = group_year[i]
+}
+#for (i in 1:length(panel_names)){
+#   	plot_df$Year[which(plot_df$Year == i)] = panel_names[i]
+#}
+plot_df = plot_df[order(plot_df$Year),]
+
+# write the region box plot summary
+write.csv(plot_df,'outputs/csv/Fig3A_CO2_prices_boxplot_abs.csv')
+
 ```
 
-```{rCO2 Prices percent}
+```{r, CO2 Prices percent}
 
 crop_prices <- GCAM_defaultNZ$Reference$`CO2 prices` %>% mutate(scenario="Baseline") %>% 
-  bind_rows(Allansce1NZ$Reference$`CO2 prices` %>% mutate(scenario="1. BIODIV")) %>% 
-  bind_rows(Allansce2NZ$Reference$`CO2 prices` %>% mutate(scenario="2. BIODIV30")) %>%
-  bind_rows(perc30NZ$Reference$`CO2 prices` %>% mutate(scenario="3. UNIFORM30"))
+  bind_rows(Allansce1NZ$Reference$`CO2 prices` %>% mutate(scenario="BIODIV")) %>% 
+  bind_rows(Allansce2NZ$Reference$`CO2 prices` %>% mutate(scenario="BIODIV30")) %>%
+  bind_rows(perc30NZ$Reference$`CO2 prices` %>% mutate(scenario="UNIFORM30"))
 
 write.csv(crop_prices,"outputs/csv/Fig3A_CO2_prices.csv")
 
 
-crop_prices_2015<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_2015=value) %>% select(-scenario)
+crop_prices_baseline<- crop_prices %>% filter(scenario=="Baseline") %>% rename(value_baseline=value) %>% select(-scenario)
 
 
 crop_prices %>% 
   filter(scenario != "Baseline") %>% 
   filter(year>2015) %>% 
-  left_join(crop_prices_2015) %>% 
+  left_join(crop_prices_baseline) %>% 
   #mutate(marginal_cost= (((value)-value_2015)/value_2015)) %>% 
   #filter(sector %in% c("Corn","Forest","Biomass","Wheat",
   #                     "Rice","biomass","Soybean","SugarCrop","OilPalm")) %>% 
   #select(-marginal_cost) %>% 
   #spread(scenario, value) %>% 
-  mutate(diff=((value- value_2015)/value_2015))->crop_marginal_cost
+  mutate(diff=((value- value_baseline)/value_baseline))->crop_marginal_cost
 
 
-g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100)) , aes(x=year,y=diff*100))+
+g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100)) , aes(x=factor(year),y=diff*100))+
   geom_boxplot(aes(group=paste0(year,scenario),color=scenario))+
   #geom_point(aes(color=scenario),show.legend = TRUE,size=2)+
   scale_color_nejm()+
@@ -208,68 +302,191 @@ g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100))
   scale_shape_manual(values= c(0))+
   scale_alpha_manual(values = c(0.1, 1)) +
   #facet_wrap(~year)+
-  xlab(" Region")+
-  ylab("difference in % between protection scenario and baseline LCT")
+  xlab("Region")+
+  ylab("% difference between protection scenario and CURRENT")
 
 g+scheme_basic
 
 ggsave( paste0("outputs/images/",'3B. CO2_prices_percent','.png'),width = 10.5, height = 10)
+
+# write these boxplot stats to a file - format it for easier access
+# colour is the scenario, group denotes the scenario and year
+plot_df = data.frame(ggplot_build(g)[[1]])
+
+# map colour to scenarios
+scenario_names = c("BIODIV", "BIODIV30", "UNIFORM30")
+# map groups to scenario and year
+group_vals = plot_df$group
+group_scen_names = rep(c("BIODIV", "BIODIV30", "UNIFORM30"), 4)
+group_year = c(rep(2030,3), rep(2050,3), rep(2075,3), rep(2100,3))
+
+plot_df = plot_df[,c("colour", "group", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
+   
+# ymin/max_final is the true min/max; ymin/max is the 1.5*IQR value; lower/upper is the 25%/75$% qurtile; middle is the median
+names(plot_df) <- c("Scenario", "Year", "min", "low_1.5*IQR", "Q25", "median", "Q75", "hi_1.5*IQR", "max")
+for (i in 1:length(group_vals)){
+  	plot_df$Scenario[which(plot_df$Year == group_vals[i])] = group_scen_names[i]
+   	plot_df$Year[which(plot_df$Year == group_vals[i])] = group_year[i]
+}
+plot_df = plot_df[order(plot_df$Year),]
+
+# write the region box plot summary
+write.csv(plot_df,'outputs/csv/Fig3A_CO2_prices_percent_boxplot.csv')
+
 ```
+
+
+
 ```{r,fig.width=10,fig.height=10}
 
 Profit_rate <- getQuery(GCAM_default, "profit rate") %>%
-               mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV default")) %>%
-  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 default")) %>%
-  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 default")) %>%
-  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. GCAM default LCT")) %>%
-  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV")) %>%
-  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30")) %>%
-  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30")) %>%
+               mutate(scenario="a) CURRENT reference") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="b) BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="c) BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="d) UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="e) CURRENT mitigation")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="f) BIODIV mitigation")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="g) BIODIV30 mitigation")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="h) UNIFORM30 mitigation")) %>%
   filter(grepl("Protected",landleaf))
 
 
 
 Profit_rate_unmanaged <- getQuery(GCAM_default, "profit rate") %>%
-               mutate(scenario="1. GCAM default") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV default")) %>%
-  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 default")) %>%
-  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 default")) %>%
-  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. GCAM default LCT")) %>%
-  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV")) %>%
-  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30")) %>%
-  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30")) %>%
+               mutate(scenario="a) CURRENT reference") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="b) BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="c) BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="d) UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="e) CURRENT mitigation")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="f) BIODIV mitigation")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="g) BIODIV30 mitigation")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="h) UNIFORM30 mitigation")) %>%
   filter(grepl("Unmanaged|Grassland|Shrubland",landleaf),
          !grepl("Protected|Unsuitable",landleaf)) %>% 
  rename(unmanaged=value) %>% 
  mutate(landleaf=paste0("Protected",landleaf))    
+
+# rather than the ratio of absolute land values, calculate the protected-unmanaged land value difference and normalize to the unmanaged value
+# this is effectively the absolute ratio minus one
  
  Profit_rate %>% 
-     left_join(Profit_rate_unmanaged) %>% 
-      mutate(ratio=value/unmanaged)->increase_in_costs
- 
- 
-write.csv(Profit_rate, "outputs/csv/Fig4_Protected_area_profitrates.csv")
+     left_join(Profit_rate_unmanaged) %>% filter(year >= 2015) %>%
+      mutate(ratio=(value-unmanaged)/unmanaged)->increase_in_costs
 
-#increase_in_costs %>% filter(!grepl("default",scenario))->increase_in_costs
+# also normalize the ratio to the CURRENT scenario to assess how much more additional protection may cost
+ref_temp = filter(increase_in_costs,
+                  scenario == "a) CURRENT reference" | scenario == "b) BIODIV reference" | scenario == "c) BIODIV30 reference" | scenario == "d) UNIFORM30 reference")
+ref_temp = merge(ref_temp, filter(ref_temp, scenario == "a) CURRENT reference") %>% mutate(ratio_current=ratio, scenario=NULL, value=NULL, unmanaged=NULL, ratio=NULL),
+                 by=c("Units", "region", "landleaf", "year"))
+ref_temp$norm_ratio = ref_temp$ratio / ref_temp$ratio_current
 
-g <- ggplot(data=increase_in_costs %>% filter(year>2015), aes(x=year,y=ratio),show.legend=F)+
+mit_temp = filter(increase_in_costs,
+                  scenario == "e) CURRENT mitigation" | scenario == "f) BIODIV mitigation" | scenario == "g) BIODIV30 mitigation" | scenario == "h) UNIFORM30 mitigation")
+mit_temp = merge(mit_temp, filter(mit_temp, scenario == "e) CURRENT mitigation") %>% mutate(ratio_current=ratio, scenario=NULL, value=NULL, unmanaged=NULL, ratio=NULL),
+                 by=c("Units", "region", "landleaf", "year"))
+mit_temp$norm_ratio = mit_temp$ratio / mit_temp$ratio_current
+
+temp = rbind(ref_temp, mit_temp)
+
+increase_in_costs = merge(increase_in_costs, mutate(temp, value=NULL, unmanaged=NULL, ratio=NULL), by=c("Units", "region", "landleaf", "year", "scenario"))
+
+write.csv(increase_in_costs, "outputs/csv/marginal_cost_protection.csv")
+
+# plot the marginal cost of protection
+
+g <- ggplot(data=increase_in_costs %>% filter(year>=2015), aes(x=year,y=ratio),show.legend=F)+
      geom_boxplot(aes(group=paste0(year,scenario)),outlier.shape = NA)+
-     geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
-                                                 region=="Brazil"), aes(x=year,y=ratio,color="Land rent for protecting the Forests in Amazon basin in Brazil "),linetype="dashed",size=1.3,show.legend = T)+
-  geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedShrubland_AusInt",landleaf),
-                                              region=="Australia_NZ"), aes(x=year,y=ratio,color="Land rent for protecting Shrubland in Australia"),linetype="dashed",size=1.3,show.legend = T)+
-  geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
-                                              region=="South America_Southern"), aes(x=year,y=ratio,color="Land rent for protecting  Forests in Southern South America"),linetype="dashed",size=1.3,show.legend = T)+
-  geom_line(data=increase_in_costs %>% filter(year>2015,grepl("ProtectedUnmanagedForest_CongoR",landleaf),
-                                              region=="Africa_Western"), aes(x=year,y=ratio,color="Land rent for protecting Forests in the Congo basin"),linetype="dashed",size=1.3,show.legend = T)+
-  facet_wrap(~scenario,scales="free")+
-     ylim(0,5)+
-     ylab("Protected land rent relative to Unmanaged land rent")
+     geom_line(data=increase_in_costs %>% filter(year>=2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+          region=="Brazil"), aes(x=year,y=ratio,color="Forests in Amazon basin in Brazil "),linetype="dashed",linewidth=1.3,show.legend = T)+
+     geom_line(data=increase_in_costs %>% filter(year>=2015,grepl("ProtectedShrubland_AusInt",landleaf),
+          region=="Australia_NZ"), aes(x=year,y=ratio,color="Shrubland in Australia"),linetype="dashed",linewidth=1.3,show.legend = T)+
+     geom_line(data=increase_in_costs %>% filter(year>=2015,grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+          region=="South America_Southern"), aes(x=year,y=ratio,color="Forests in Southern South America"),linetype="dashed",linewidth=1.3,show.legend = T)+
+     geom_line(data=increase_in_costs %>% filter(year>=2015,grepl("ProtectedUnmanagedForest_CongoR",landleaf),
+          region=="Africa_Western"), aes(x=year,y=ratio,color="Forests in the Congo basin"),linetype="dashed",linewidth=1.3,show.legend = T)+
+     facet_wrap(~scenario,scales="free", nrow=2)+
+     ylim(0,3)+
+     ylab("Marginal cost of protection relative to unmanaged land value")
 
 g+scheme_basic
 
-ggsave( paste0("outputs/images/",'4. Protected_area_land_rent','.png'),width = 15, height = 10)
+ggsave( paste0("outputs/images/marginal_cost_protection.pdf"),width = 15, height = 10)
+
+# write these boxplot stats to a file - format it for easier access
+# PANEL is the scenario, group denotes the scenario and year
+plot_df = data.frame(ggplot_build(g)[[1]])
+
+# panel ids are the indices of panel_names
+panel_names = c("a) CURRENT reference", "b) BIODIV reference", "c) BIODIV30 reference", "d) UNIFORM30 reference",
+                "e) CURRENT mitigation", "f) BIODIV mitigation", "g) BIODIV30 mitigation", "h) UNIFORM30 mitigation")
+# year labels are in column x
+
+plot_df = plot_df[,c("PANEL", "x", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
+   
+# ymin/max_final is the true min/max; ymin/max is the 1.5*IQR value; lower/upper is the 25%/75$% quartile; middle is the median
+names(plot_df) <- c("Scenario", "Year", "min", "low_1.5*IQR", "Q25", "median", "Q75", "hi_1.5*IQR", "max")
+plot_df$Scenario <- as.numeric(plot_df$Scenario)
+for (i in 1:length(panel_names)){
+  	plot_df$Scenario[which(plot_df$Scenario == i)] = panel_names[i]
+}
+plot_df = plot_df[order(plot_df$Scenario, plot_df$Year),]
+
+# write the marginal cost box plot summary
+write.csv(plot_df,'outputs/csv/marginal_cost_protection_boxplot.csv')
+
+
+# plot the CURRENT-normalized marginal cost of protection
+
+g <- ggplot(data=increase_in_costs %>% filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation"), aes(x=year,y=norm_ratio),show.legend=F)+
+     geom_boxplot(aes(group=paste0(year,scenario)),outlier.shape = NA)+
+  
+#     geom_line(data=increase_in_costs %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+#          region=="Brazil"), aes(x=year,y=norm_ratio,color="Forests in Amazon basin in Brazil "),linetype="dashed",linewidth=1.3,show.legend = T)+
+#     geom_line(data=increase_in_costs %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedShrubland_AusInt",landleaf),
+#          region=="Australia_NZ"), aes(x=year,y=norm_ratio,color="Shrubland in Australia"),linetype="dashed",linewidth=1.3,show.legend = T)+
+#     geom_line(data=increase_in_costs %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+#          region=="South America_Southern"), aes(x=year,y=norm_ratio,color="Forests in Southern South America"),linetype="dashed",linewidth=1.3,show.legend = T)+
+#     geom_line(data=increase_in_costs %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedUnmanagedForest_CongoR",landleaf),
+#          region=="Africa_Western"), aes(x=year,y=norm_ratio,color="Forests in the Congo basin"),linetype="dashed",linewidth=1.3,show.legend = T)+
+  
+     facet_wrap(~scenario,scales="free", nrow=2)+
+     ylim(0.75,1.5)+
+     ylab("Relative marginal cost of protection normalized to CURRENT")
+
+g+scheme_basic
+
+ggsave( paste0("outputs/images/marginal_cost_protection_norm2current.pdf"),width = 15, height = 10)
+
+# write these boxplot stats to a file - format it for easier access
+# PANEL is the scenario, group denotes the scenario and year
+plot_df = data.frame(ggplot_build(g)[[1]])
+
+# panel ids are the indices of panel_names
+panel_names = c("a) CURRENT reference", "b) BIODIV reference", "c) BIODIV30 reference", "d) UNIFORM30 reference",
+                "e) CURRENT mitigation", "f) BIODIV mitigation", "g) BIODIV30 mitigation", "h) UNIFORM30 mitigation")
+# year labels are in column x
+
+plot_df = plot_df[,c("PANEL", "x", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
+   
+# ymin/max_final is the true min/max; ymin/max is the 1.5*IQR value; lower/upper is the 25%/75$% quartile; middle is the median
+names(plot_df) <- c("Scenario", "Year", "min", "low_1.5*IQR", "Q25", "median", "Q75", "hi_1.5*IQR", "max")
+plot_df$Scenario <- as.numeric(plot_df$Scenario)
+for (i in 1:length(panel_names)){
+  	plot_df$Scenario[which(plot_df$Scenario == i)] = panel_names[i]
+}
+plot_df = plot_df[order(plot_df$Scenario, plot_df$Year),]
+
+# write the marginal cost box plot summary
+write.csv(plot_df,'outputs/csv/marginal_cost_protection_norm2current_boxplot.csv')
+
+
+
 
 ```
+
+
 ```{r}
 
 
@@ -387,6 +604,477 @@ g+scheme_basic
 ggsave( paste0("outputs/images/",'7. Unavailable','.png'),width = 15, height = 10)
 
 ```
+
+
+
+```{r, ag correlations}
+
+# instead, do correlations between allocation and production and allocation and price and production and price for the distinct types
+# do this just for the mitigation scenario
+
+plot_crops = c("BioenergyCrop", "Corn", "FiberCrop", "FodderGrass", "FodderHerb", "Fruits", "Legumes", "MiscCrop", "NutsSeeds", "OilCrop", "OilPalm",
+               "OtherGrain", "Rice", "RootTuber", "Soybean", "SugarCrop", "Vegetables", "Wheat")
+
+gcam_crop_names = c("biomassGrass", "biomassTree", "CornC4", "FiberCrop", "FodderGrass", "FodderHerb", "FodderHerbC4", "Fruits", "FruitsTree",
+					"Legumes", "MiscCrop", "MiscCropTree", "NutsSeeds", "NutsSeedsTree", "OilCrop", "OilCropTree", "OilPalmTree", "OtherGrain", "OtherGrainC4",
+					"Rice", "RootTuber", "Soybean", "SugarCrop", "SugarCropC4", "Vegetables", "Wheat")
+
+plot_map_names = c("BioenergyCrop", "BioenergyCrop", "Corn", "FiberCrop", "FodderGrass", "FodderHerb", "FodderHerb", "Fruits", "Fruits",
+                   "Legumes", "MiscCrop", "MiscCrop", "NutsSeeds", "NutsSeeds", "OilCrop", "OilCrop", "OilPalm", "OtherGrain", "OtherGrain",
+                   "Rice", "RootTuber", "Soybean", "SugarCrop", "SugarCrop", "Vegetables", "Wheat")
+
+ag_production <- getQuery(GCAM_defaultNZ, "ag production by crop type") %>%
+  mutate(scenario="CURRENT") %>% bind_rows(getQuery(Allansce1NZ, "ag production by crop type") %>%mutate(scenario="BIODIV")) %>%
+  bind_rows(getQuery(Allansce2NZ, "ag production by crop type") %>%mutate(scenario="BIODIV30")) %>%
+  bind_rows(getQuery(perc30NZ, "ag production by crop type") %>%mutate(scenario="UNIFORM30")) %>%
+  filter(year >= 2015 & sector %in% c(plot_crops, "biomass"))
+ag_production$sector[ag_production$sector=="biomass"] = "BioenergyCrop"
+ag_production$output = NULL
+names(ag_production)[which(names(ag_production) == "value")] = "prod_Mt_EJ"
+ag_production$Units = NULL
+
+ag_prices <- getQuery(GCAM_defaultNZ, "ag commodity prices") %>%
+  mutate(scenario="CURRENT") %>% bind_rows(getQuery(Allansce1NZ, "ag commodity prices") %>%mutate(scenario="BIODIV")) %>%
+  bind_rows(getQuery(Allansce2NZ, "ag commodity prices") %>%mutate(scenario="BIODIV30")) %>%
+  bind_rows(getQuery(perc30NZ, "ag commodity prices") %>%mutate(scenario="UNIFORM30")) %>%
+  filter(year >= 2015 & sector %in% c(plot_crops, "biomass"))
+ag_prices$sector[ag_prices$sector=="biomass"] = "BioenergyCrop"
+names(ag_prices)[which(names(ag_prices) == "value")] = "price_1975_usd_perkg_perGJ"
+ag_prices$Units = NULL
+
+ag_allocation <- getQuery(GCAM_defaultNZ, "detailed land allocation") %>%
+  mutate(scenario="CURRENT") %>% bind_rows(getQuery(Allansce1NZ, "detailed land allocation") %>%mutate(scenario="BIODIV")) %>%
+  bind_rows(getQuery(Allansce2NZ, "detailed land allocation") %>%mutate(scenario="BIODIV30")) %>%
+  bind_rows(getQuery(perc30NZ, "detailed land allocation") %>%mutate(scenario="UNIFORM30")) %>%
+  filter(year >= 2015)
+
+# separate the land type and basin names and determine the glu code
+ag_allocation$LT_GCAM = sapply(strsplit(ag_allocation$landleaf,"_"),"[[",1)
+ag_allocation$gcam_glu_abbr = sapply(strsplit(ag_allocation$landleaf,"_"),"[[",2)
+ag_allocation$water = NA
+ag_allocation$water[ag_allocation$LT_GCAM %in% gcam_crop_names] = 
+			sapply(strsplit(ag_allocation$landleaf[ag_allocation$LT_GCAM %in% gcam_crop_names],"_"),"[[",3)
+ag_allocation$fert = NA
+ag_allocation$fert[ag_allocation$LT_GCAM %in% gcam_crop_names] =
+			sapply(strsplit(ag_allocation$landleaf[ag_allocation$LT_GCAM %in% gcam_crop_names],"_"),"[[",4)
+ag_allocation$landleaf = NULL
+filter(ag_allocation, LT_GCAM %in% gcam_crop_names)
+# aggregate to region
+ag_allocation = aggregate(value ~ Units + scenario + region + year + LT_GCAM, data = ag_allocation, FUN=sum, na.rm=TRUE)
+# aggregate to production/price types
+ag_allocation$sector = NA
+for (i in 1:length(gcam_crop_names)) {
+  ag_allocation$sector[ag_allocation$LT_GCAM == gcam_crop_names[i]] = plot_map_names[i]
+}
+ag_allocation = aggregate(value ~ Units + scenario + region + sector + year, data = ag_allocation, FUN=sum, na.rm=TRUE)
+names(ag_allocation)[which(names(ag_allocation) == "value")] = "alloc_thous_km2"
+ag_allocation$Units = NULL
+
+# merge the three data streams into one df
+plot_df = merge(ag_allocation, ag_production, by=c("scenario", "region", "sector", "year"), all.x = TRUE)
+plot_df = merge(plot_df, ag_prices, by=c("scenario", "region", "sector", "year"), all.x = TRUE)
+
+plot_df[is.na(plot_df)] <- 0
+
+# add global region
+# only price needs weighting; Mt to kg and GJ to EJ are both *1e9
+plot_df$tot_price = plot_df$price_1975_usd_perkg_perGJ * plot_df$prod_Mt_EJ * 1e9
+global = aggregate(cbind(alloc_thous_km2, prod_Mt_EJ, tot_price) ~ scenario + sector + year, data = plot_df, FUN = sum, na.rm = TRUE)
+global$price_1975_usd_perkg_perGJ = global$tot_price / 1e9
+global$region = "Global"
+global = global[,names(plot_df)]
+all_df = rbind(plot_df, global)
+
+
+
+# first do the correlation calcs by scenario and sector and region
+# include data from all years in each group
+# include the globe as a region?
+plot_df = all_df
+
+for(s in c(unique(plot_df$scenario))){
+  
+  # write separate file for each for each scenario
+  # include each region
+
+  pdf(paste0("outputs/images/ag_correlations_", s, "_NZ.pdf"), width=8.5, height=4)
+  
+  for(r in c(unique(plot_df$region))){
+  for(c in c(unique(plot_df$sector))){
+
+    # production to allocation
+    prod_alloc_error = FALSE
+    tr <- tryCatch( {lmout=lm(prod_Mt_EJ ~ alloc_thous_km2, data = filter(plot_df, sector == c & scenario == s & region == r))},
+                    error = function(e) {prod_alloc_error <<- TRUE})
+    if(!prod_alloc_error){
+      slm = summary(lmout)
+      r2 = slm$r.squared
+      r2adj = slm$adj.r.squared
+      pval = slm$coefficients[8]
+      min_x = min(plot_df$alloc_thous_km2, na.rm=TRUE)
+      max_x = max(plot_df$alloc_thous_km2, na.rm=TRUE)
+      coef=slm$coefficients
+      lint = coef[1]
+      lslp = coef[2]
+      # form: y = a + b*x
+      plot_df$prod_alloc_a[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(lint,2)
+      plot_df$prod_alloc_b[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(lslp,3)
+      plot_df$prod_alloc_r2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(r2,2)
+      plot_df$prod_alloc_slp_pval[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(pval,5)
+      plot_df$prod_alloc_y[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = 
+        predict(lmout, list(alloc_thous_km2 = plot_df$alloc_thous_km2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r]))
+    }
+
+    # price to production
+    price_prod_error = FALSE
+    tr <- tryCatch( {lmout=lm(price_1975_usd_perkg_perGJ ~ prod_Mt_EJ, data = filter(plot_df, sector == c & scenario == s & region == r))},
+                    error = function(e) {price_prod_error <<- TRUE})
+    if(!price_prod_error){
+      slm = summary(lmout)
+      r2 = slm$r.squared
+      r2adj = slm$adj.r.squared
+      pval = slm$coefficients[8]
+      min_x = min(plot_df$alloc_thous_km2, na.rm=TRUE)
+      max_x = max(plot_df$alloc_thous_km2, na.rm=TRUE)
+      coef=slm$coefficients
+      lint = coef[1]
+      lslp = coef[2]
+      # form: y = a + b*x
+      plot_df$price_prod_a[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(lint,2)
+      plot_df$price_prod_b[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(lslp,5)
+      plot_df$price_prod_r2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(r2,2)
+      plot_df$price_prod_slp_pval[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(pval,5)
+      plot_df$price_prod_y[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = 
+        predict(lmout, list(prod_Mt_EJ = plot_df$prod_Mt_EJ[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r]))
+    }
+  
+    # price to allocation
+    price_alloc_error = FALSE
+    tr <- tryCatch( {lmout=lm(price_1975_usd_perkg_perGJ ~ alloc_thous_km2, data = filter(plot_df, sector == c & scenario == s & region == r))},
+                    error = function(e) {price_alloc_error <<- TRUE})
+    if(!price_alloc_error){
+      slm = summary(lmout)
+      r2 = slm$r.squared
+      r2adj = slm$adj.r.squared
+      pval = slm$coefficients[8]
+      min_x = min(plot_df$alloc_thous_km2, na.rm=TRUE)
+      max_x = max(plot_df$alloc_thous_km2, na.rm=TRUE)
+      coef=slm$coefficients
+      lint = coef[1]
+      lslp = coef[2]
+      # form: y = a + b*x
+      plot_df$price_alloc_a[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(lint,2)
+      plot_df$price_alloc_b[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(lslp,5)
+      plot_df$price_alloc_r2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(r2,2)
+      plot_df$price_alloc_slp_pval[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = round(pval,5)
+      plot_df$price_alloc_y[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r] = 
+        predict(lmout, list(alloc_thous_km2 = plot_df$alloc_thous_km2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r]))
+  }
+  
+    ## now make plots
+    
+    # production to allocation
+  
+    pstitle=paste("r2 =", plot_df$prod_alloc_r2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1], "pval =", 
+                plot_df$prod_alloc_slp_pval[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1])
+    modtext = paste0("\n", "y = ", plot_df$prod_alloc_a[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1], " + ", 
+                   plot_df$prod_alloc_b[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1]," * x")
+    pstitle = paste(pstitle, modtext)
+    
+    if(!prod_alloc_error){
+      g <- ggplot(data=plot_df %>% filter(sector==c & scenario == s & plot_df$region == r) ) +
+        geom_point(data=plot_df %>% filter(sector==c & scenario == s & plot_df$region == r), aes(x=alloc_thous_km2, y=prod_Mt_EJ, color=year)) +
+        ylab("Mt (EJ for BioeneryCrop)") +
+        xlab("thousand km^2") +
+		    labs(title = paste(r, c, "production vs allocation"), subtitle = pstitle, color = "year") +
+	  	  geom_line(aes(x=alloc_thous_km2, y = prod_alloc_y))
+
+      g+scheme_basic
+      print(g)
+    }
+    
+    # price to production
+  
+    pstitle=paste("r2 =", plot_df$price_prod_r2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1], "pval =", 
+                plot_df$price_prod_slp_pval[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1])
+    modtext = paste0("\n", "y = ", plot_df$price_prod_a[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1], " + ", 
+                   plot_df$price_prod_b[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1]," * x")
+    pstitle = paste(pstitle, modtext)
+    
+    if(!price_prod_error){
+      g <- ggplot(data=plot_df %>% filter(sector==c & scenario == s & plot_df$region == r) ) +
+        geom_point(data=plot_df %>% filter(sector==c & scenario == s & plot_df$region == r), aes(x=prod_Mt_EJ, y=price_1975_usd_perkg_perGJ, color=year)) +
+        ylab("1975$ per kg (per GJ for BioeneryCrop)") +
+        xlab("Mt (EJ for BioeneryCrop)") +
+		    labs(title = paste(r, c, "price vs production"), subtitle = pstitle, color = "year") +
+		    geom_line(aes(x=prod_Mt_EJ, y = price_prod_y))
+
+      g+scheme_basic
+      print(g)
+    }
+    
+    # price to allocation
+  
+    pstitle=paste("r2 =", plot_df$price_alloc_r2[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1], "pval =", 
+                plot_df$price_alloc_slp_pval[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1])
+    modtext = paste0("\n", "y = ", plot_df$price_alloc_a[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1], " + ", 
+                   plot_df$price_alloc_b[plot_df$sector == c & plot_df$scenario == s & plot_df$region == r][1]," * x")
+    pstitle = paste(pstitle, modtext)
+    
+    if(!price_alloc_error){
+      g <- ggplot(data=plot_df %>% filter(sector==c & scenario == s & plot_df$region == r) ) +
+        geom_point(data=plot_df %>% filter(sector==c & scenario == s & plot_df$region == r), aes(x=alloc_thous_km2, y=price_1975_usd_perkg_perGJ, color=year)) +
+        ylab("1975$ per kg (per GJ for BioeneryCrop)") +
+        xlab("thousand km^2") +
+		    labs(title = paste(r, c, "price vs allocation"), subtitle = pstitle, color = "year") +
+		    geom_line(aes(x=alloc_thous_km2, y = price_alloc_y))
+
+      g+scheme_basic
+      print(g)
+    }
+  
+  } # end c loop over sectors
+
+    
+  } # end r loop over regions
+  
+  dev.off()
+
+  
+} # end s loop over scenarios
+
+write.csv(plot_df, "outputs/csv/ag_correlations_NZ.csv")
+
+# also plot the regional and global time series of bioenergy crop production for all mitigation scenarios
+
+p <- ggplot(plot_df %>% filter(year>=2015 & sector == "BioenergyCrop")) +
+    geom_line(data=plot_df %>% filter(year>=2015 & sector == "BioenergyCrop"), aes(x = year, y = prod_Mt_EJ, color = scenario), linewidth=1.2) +
+		facet_wrap(~region, scales = "free") +
+		ylab("EJ") +
+		ggtitle("Bioenergy crop production under different protection scenarios") +
+		scale_color_viridis(discrete = TRUE, option = "D") +
+		labs(color="Scenario")
+	
+plot(p)
+p+scheme_basic + theme(axis.text.x=element_text(size=8), axis.text.y=element_text(size=8))
+
+ggsave( "outputs/images/bioenergycrop_production_NZ.pdf", width = 15, height = 10)
+
+# also plot the regional and global time series of bioenergy crop allocation for all mitigation scenarios
+
+p <- ggplot(plot_df %>% filter(year>=2015 & sector == "BioenergyCrop")) +
+    geom_line(data=plot_df %>% filter(year>=2015 & sector == "BioenergyCrop"), aes(x = year, y = alloc_thous_km2, color = scenario), linewidth=1.2) +
+		facet_wrap(~region, scales = "free") +
+		ylab("EJ") +
+		ggtitle("Bioenergy crop allocation under different protection scenarios") +
+		scale_color_viridis(discrete = TRUE, option = "D") +
+		labs(color="Scenario")
+	
+plot(p)
+p+scheme_basic + theme(axis.text.x=element_text(size=8), axis.text.y=element_text(size=8))
+
+ggsave( "outputs/images/bioenergycrop_allocation_NZ.pdf", width = 15, height = 10)
+
+
+```
+```{r, total protection cost}
+
+# do this globally and by region
+
+Profit_rate <- getQuery(GCAM_default, "profit rate") %>% mutate(scenario="CURRENT reference") %>% 
+  bind_rows(getQuery(Allansce1, "profit rate") %>% mutate(scenario="BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="CURRENT mitigation")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="BIODIV mitigation")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="BIODIV30 mitigation")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="UNIFORM30 mitigation")) %>%
+  filter(grepl("Protected",landleaf)) %>%
+  rename(protected_value=value)
+
+Profit_rate_unmanaged <- getQuery(GCAM_default, "profit rate") %>% mutate(scenario="CURRENT reference") %>% 
+  bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="CURRENT mitigation")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="BIODIV mitigation")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="BIODIV30 mitigation")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="UNIFORM30 mitigation")) %>%
+  filter(grepl("Unmanaged|Grassland|Shrubland",landleaf),
+         !grepl("Protected|Unsuitable",landleaf)) %>% 
+ rename(unmanaged_value=value) %>% 
+ mutate(landleaf=paste0("Protected",landleaf))    
+ 
+ Profit_rate %>% 
+     left_join(Profit_rate_unmanaged) %>% filter(year >= 2015) %>%
+      mutate(cost_prot_usd_per_thous_km2=protected_value-unmanaged_value) -> protection_cost
+ 
+ # need land allocation
+ 
+ land_allocation <- getQuery(GCAM_default, "detailed land allocation") %>% mutate(scenario="CURRENT reference") %>% 
+  bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "detailed land allocation") %>% mutate(scenario="CURRENT mitigation")) %>% 
+  bind_rows(getQuery(Allansce1NZ, "detailed land allocation") %>%mutate(scenario="BIODIV mitigation")) %>%
+  bind_rows(getQuery(Allansce2NZ, "detailed land allocation") %>%mutate(scenario="BIODIV30 mitigation")) %>%
+  bind_rows(getQuery(perc30NZ, "detailed land allocation") %>%mutate(scenario="UNIFORM30 mitigation")) %>%
+  filter(year >= 2015, grepl("Protected",landleaf)) %>%
+  rename(alloc_thous_km2=value)
+
+ # join cost and allocation and calc total cost
+ protection_cost$Units=NULL
+ land_allocation$Units=NULL
+ protection_cost = merge(protection_cost, land_allocation, all.x=TRUE)
+ protection_cost$tot_cost_usd = protection_cost$cost_prot_usd_per_thous_km2 * protection_cost$alloc_thous_km2
+ 
+# aggregate to region
+tot_prot_cost = aggregate(cbind(alloc_thous_km2, tot_cost_usd) ~ scenario + region + year, data = protection_cost, FUN=sum, na.rm=TRUE)
+tot_prot_cost$cost_prot_usd_per_thous_km2 = tot_prot_cost$tot_cost_usd / tot_prot_cost$alloc_thous_km2
+
+# add global region
+glb_cost = aggregate(cbind(alloc_thous_km2, tot_cost_usd) ~ scenario + year, data = tot_prot_cost, FUN = sum, na.rm = TRUE)
+glb_cost$cost_prot_usd_per_thous_km2 = glb_cost$tot_cost_usd / glb_cost$alloc_thous_km2
+glb_cost$region = "Global"
+glb_cost = glb_cost[,names(tot_prot_cost)]
+tot_prot_cost = rbind(tot_prot_cost, glb_cost)
+
+# plot mitigation scenario values
+
+ # per area
+ p <- ggplot(tot_prot_cost %>% filter(grepl("mitigation", scenario))) +
+  geom_line(aes(x = year, y = cost_prot_usd_per_thous_km2,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Marginal protection cost')) +
+  xlab("Year") + 
+  ylab("Protection cost (usd/thous km^2)")
+ print(p)
+ ggsave("outputs/images/protection_cost_perarea_region_NZ.pdf", width = 15, height = 10)
+ 
+ # total
+  p <- ggplot(tot_prot_cost %>% filter(grepl("mitigation", scenario))) +
+  geom_line(aes(x = year, y = tot_cost_usd,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Total marginal protection cost')) +
+  xlab("Year") + 
+  ylab("Protection cost (usd)")
+ print(p)
+ ggsave("outputs/images/protection_cost_total_region_NZ.pdf", width = 15, height = 10)
+ 
+ 
+ # plot reference scenario values
+
+ # per area
+ p <- ggplot(tot_prot_cost %>% filter(grepl("reference", scenario))) +
+  geom_line(aes(x = year, y = cost_prot_usd_per_thous_km2,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Marginal protection cost')) +
+  xlab("Year") + 
+  ylab("Protection cost (usd/thous km^2)")
+ print(p)
+ ggsave("outputs/images/protection_cost_perarea_region_ref.pdf", width = 15, height = 10)
+ 
+ # total
+  p <- ggplot(tot_prot_cost %>% filter(grepl("reference", scenario))) +
+  geom_line(aes(x = year, y = tot_cost_usd,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Total marginal protection cost')) +
+  xlab("Year") + 
+  ylab("Protection cost (usd)")
+ print(p)
+ ggsave("outputs/images/protection_cost_total_region_ref.pdf", width = 15, height = 10)
+ 
+ 
+# normalize the cost to the CURRENT scenario to assess how much more additional protection may cost
+ref_temp = filter(tot_prot_cost, grepl("reference", scenario))
+ref_temp = merge(ref_temp, filter(ref_temp, scenario == "CURRENT reference") %>% 
+    mutate(area_current=alloc_thous_km2, costperarea_current=cost_prot_usd_per_thous_km2, totcost_current=tot_cost_usd, scenario=NULL,
+           alloc_thous_km2=NULL, cost_prot_usd_per_thous_km2=NULL, tot_cost_usd=NULL), by=c("region", "year"))
+ref_temp = mutate(ref_temp, alloc_norm=alloc_thous_km2/area_current, costperarea_norm=cost_prot_usd_per_thous_km2/costperarea_current, totcost_norm=tot_cost_usd/totcost_current)
+
+mit_temp = filter(tot_prot_cost, grepl("mitigation", scenario))
+mit_temp = merge(mit_temp, filter(mit_temp, scenario == "CURRENT mitigation") %>% 
+    mutate(area_current=alloc_thous_km2, costperarea_current=cost_prot_usd_per_thous_km2, totcost_current=tot_cost_usd, scenario=NULL,
+           alloc_thous_km2=NULL, cost_prot_usd_per_thous_km2=NULL, tot_cost_usd=NULL), by=c("region", "year"))
+mit_temp = mutate(mit_temp, alloc_norm=alloc_thous_km2/area_current, costperarea_norm=cost_prot_usd_per_thous_km2/costperarea_current, totcost_norm=tot_cost_usd/totcost_current)
+
+tot_prot_cost_more = rbind(ref_temp, mit_temp)
+
+# plot mitigation scenario values
+
+ # per area
+ p <- ggplot(tot_prot_cost_more %>% filter(grepl("mitigation", scenario), !grepl("CURRENT", scenario))) +
+  geom_line(aes(x = year, y = costperarea_norm,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Marginal protection cost normalized to CURRENT')) +
+  xlab("Year") + 
+  ylab("Protection cost normalized")
+ print(p)
+ ggsave("outputs/images/protection_cost_perarea_region_NZ_norm2current.pdf", width = 15, height = 10)
+ 
+ # total
+  p <- ggplot(tot_prot_cost_more %>% filter(grepl("mitigation", scenario), !grepl("CURRENT", scenario))) +
+  geom_line(aes(x = year, y = totcost_norm,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Total marginal protection cost normalized to CURRENT')) +
+  xlab("Year") + 
+  ylab("Protection cost normalized")
+ print(p)
+ ggsave("outputs/images/protection_cost_total_region_NZ_norm2current.pdf", width = 15, height = 10)
+ 
+ 
+ # plot reference scenario values
+
+ # per area
+ p <- ggplot(tot_prot_cost_more %>% filter(grepl("reference", scenario), !grepl("CURRENT", scenario))) +
+  geom_line(aes(x = year, y = costperarea_norm,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Marginal protection cost normalized to CURRENT')) +
+  xlab("Year") + 
+  ylab("Protection cost normalized")
+ print(p)
+ ggsave("outputs/images/protection_cost_perarea_region_ref_norm2current.pdf", width = 15, height = 10)
+ 
+ # total
+  p <- ggplot(tot_prot_cost_more %>% filter(grepl("reference", scenario), !grepl("CURRENT", scenario))) +
+  geom_line(aes(x = year, y = totcost_norm,  color = scenario, linetype = scenario), size = 1) +
+  theme_bw() +
+  facet_wrap(~region, scale = "free_y") +
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  ggtitle(bquote(~'Total marginal protection cost normalized to CURRENT')) +
+  xlab("Year") + 
+  ylab("Protection cost normailzed")
+ print(p)
+ ggsave("outputs/images/protection_cost_total_region_ref_norm2current.pdf", width = 15, height = 10)
+
+
+ write.csv(tot_prot_cost_more, "outputs/csv/proction_cost_region.csv")
+ 
+
+```
+
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
