@@ -548,7 +548,8 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 		write.csv(gcam_land_all, file = paste0(outdir, "gcam_land_all_", out_names[s], "_", year, ".csv"), row.names = FALSE, na="")
 		write.csv(gcam_land_reg_all, file = paste0(outdir, "gcam_land_reg_all_", out_names[s], "_", year, ".csv"), row.names = FALSE, na="")
 
-
+		# need the land unit df
+		land_units = unique(gcam_land_all$unit_id)
 
 		##note that i don't find any relationships so far in a given year
 		
@@ -569,8 +570,6 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			print(p)
 		
 		#### make some plots and stats by land unit
-		
-		land_units = unique(gcam_land_all$unit_id)
 		
 		p = ggplot(gcam_land_all[gcam_land_all$unit_id== land_units[1],], aes(x= SuitProtUnman2AvailUnman_value_ratio, y= SuitProtUnman2Man_value_ratio, color = SuitProtUnman2Man_ratio)) +
 			geom_point()
@@ -653,9 +652,9 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 
 		p = ggplot(t, aes(x= SuitProtUnman2Man_ratio, y= prot_cost_norm, color = year)) +
 			geom_point() +
-			labs(title=paste("marginal protection cost ratio - all land units"), subtitle=pstitle) +
+			labs(title=paste("all land units"), subtitle=pstitle) +
 			xlab("Suitable protected area to managed area ratio") +
-			ylab("Marginal cost of protection (narmalized to unmanaged land value)") +
+			ylab("Relative change in protected land conversion pressure") +
 			geom_line(aes(SuitProtUnman2Man_ratio, y_exp))
 		print(p)
 		
@@ -690,7 +689,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   cat(" nls_error=", nls_error)
 			   
 			   py = t$prot_cost_norm
-			   pylab = "Marginal cost of protection (narmalized to unmanaged land value)"
+			   pylab = "Relative change in protected land conversion pressure"
 			   
 			   if(!nls_error) {
 			      t$y_exp = predict(fit, list(SuitProtUnman2Man_ratio = t$SuitProtUnman2Man_ratio))
@@ -703,6 +702,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			      t$a = round(asym,2)
 			      t$b = round(r0-asym,2)
 			      t$c = round(-exp(lrc),2)
+			      t$fit = "nls"
 			      modtext = paste0("\n", "y=", t$a[1], "+", t$b[1], "*exp(", t$c[1], "*x)")
 
 			   } else {     # try a simpler fit
@@ -711,7 +711,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   	  if ( length(which(t$prot_cost_norm <= 0)) > 0) {
 			   	  	lmout=lm(log(prot_cost_norm+1) ~ SuitProtUnman2Man_ratio,data = t, na.rm=TRUE)
 			   	  	py = t$prot_cost_norm + 1
-			   	  	pylab = "Suitable protected value to unmanaged value ratio"
+			   	  	pylab = "Protected land conversion pressure"
 			   	  } else {
 			      	lmout=lm(log(prot_cost_norm) ~ SuitProtUnman2Man_ratio,data = t, na.rm=TRUE)
 			      }
@@ -728,6 +728,12 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
                   t$a = 0.00
                   t$b = round(exp(lint),2)
 			      t$c = round(lslp,2)
+			      if(pylab == "Protected land conversion pressure"){
+			      	# had to shift the data due to negative values
+			      	t$fit = "shifted linear-log"
+			      } else {
+			      	t$fit = "linear-log"
+			      }
                
                   t$y_exp = exp(predict(lmout, list(SuitProtUnman2Man_ratio = t$SuitProtUnman2Man_ratio)))
                   pstitle=paste("linear-log(y) r2 =", round(r2,5), "pval =", round(pval,5))
@@ -752,7 +758,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   
 			   p = ggplot(t, aes(x= SuitProtUnman2Man_ratio, y= py, color = year)) +
 					geom_point() +
-					labs(title=paste(land_units[l], "marginal protection cost ratio"), subtitle=pstitle) +
+					labs(title=paste(land_units[l], "Protected land conversion pressure"), subtitle=pstitle) +
 					xlab("Suitable protected area to managed area ratio") +
 					ylab(pylab) +
 					geom_line(aes(SuitProtUnman2Man_ratio, y_exp))
@@ -768,14 +774,17 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 		
     	dev.off()
 		
+		# need to select the corresponding y values for the fit method
+		gcam_land_out$plot_y = gcam_land_out$prot_cost_norm
+		gcam_land_out$plot_y[gcam_land_out$fit == "linear-log"] = gcam_land_out$SuitProtUnman2AvailUnman_value_ratio[gcam_land_out$fit == "linear-log"]
+		
 		write.csv(gcam_land_out, file=paste0(outdir, "prot_cost_2_area_", out_names[s], ".csv"), row.names=FALSE)
 		
-		
+		region_names = unique(gcam_land_reg_all$region)
+				
 		#### make some plots and stats by region
 		# exploratory plots
 		if(FALSE){
-		
-		region_names = unique(gcam_land_reg_all$region)
 		
 		p = ggplot(gcam_land_reg_all[gcam_land_reg_all$region== region_names[25],], aes(x= SuitProtUnman2Man_value_ratio, y= SuitProtUnman2AvailUnman_ratio)) +
 			geom_point()
@@ -816,7 +825,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   cat(" nls_error=", nls_error)
 			   
 			   py = t$prot_cost_norm
-			   pylab = "Marginal cost of protection (narmalized to unmanaged land value)"
+			   pylab = "Relative change in protected land conversion pressure"
 			   
 			   if(!nls_error) {
 			      t$y_exp = predict(fit, list(SuitProtUnman2Man_ratio = t$SuitProtUnman2Man_ratio))
@@ -829,6 +838,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			      t$a = round(asym,2)
 			      t$b = round(r0-asym,2)
 			      t$c = round(-exp(lrc),2)
+			      t$fit = "nls"
 			      modtext = paste0("\n", "y=", t$a[1], "+", t$b[1], "*exp(", t$c[1], "*x)")
 			   } else {     # try a simpler fit
 			   	  # the log of a negative is undefined and the log of zero is inf
@@ -836,7 +846,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   	  if ( length(which(t$prot_cost_norm <= 0)) > 0) {
 			   	  	lmout=lm(log(prot_cost_norm+1) ~ SuitProtUnman2Man_ratio,data = t, na.rm=TRUE)
 			   	  	py = t$prot_cost_norm + 1
-			   	  	pylab = "Suitable protected value to unmanaged value ratio"
+			   	  	pylab = "Protected land conversion pressure"
 			   	  } else {
 			      	lmout=lm(log(prot_cost_norm) ~ SuitProtUnman2Man_ratio,data = t, na.rm=TRUE)
 			      }
@@ -853,6 +863,12 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
                   t$a = 0.00
                   t$b = round(exp(lint),2)
 			      t$c = round(lslp,2)
+			      if(pylab == "Protected land conversion pressure"){
+			      	# had to shift the data due to negative values
+			      	t$fit = "shifted linear-log"
+			      } else {
+			      	t$fit = "linear-log"
+			      }
                
                   t$y_exp = exp(predict(lmout, list(SuitProtUnman2Man_ratio = t$SuitProtUnman2Man_ratio)))
                   pstitle=paste("linear-log(y) r2 =", round(r2,5), "pval =", round(pval,5))
@@ -877,7 +893,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   
 			   p = ggplot(t, aes(x= SuitProtUnman2Man_ratio, y= py, color = year)) +
 					geom_point() +
-					labs(title=paste(region_names[r], "marginal protection cost ratio"), subtitle=pstitle) +
+					labs(title=paste(region_names[r], "protected land conversion pressure"), subtitle=pstitle) +
 					xlab("Suitable protected area to managed area ratio") +
 					ylab(pylab) +
 					geom_line(aes(SuitProtUnman2Man_ratio, y_exp))
@@ -892,11 +908,41 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 		} # end for r loop
 		
     	dev.off()
+
+		##### make panel plot on one page for the regions for supplemental figure
+		
+		# need to select the corresponding y values for the linear fit method if there were negative values 
+		gcam_land_reg_out$plot_y = gcam_land_reg_out$prot_cost_norm
+		gcam_land_reg_out$plot_y[gcam_land_reg_out$fit == "shifted linear-log"] = gcam_land_reg_out$SuitProtUnman2AvailUnman_value_ratio[gcam_land_reg_out$fit == "shifted linear-log"]
+		
+		# need to reduce x ticks
+		mybreaks <- function(n,s){
+			function(x){
+				x=x*10000
+				d = s * diff(range(x)) / (1+2*s)
+				sq = seq(min(x) + d, max(x) - d, length = n) / 10000
+				round(sq,3)
+			}
+		}
+		
+		p = ggplot(gcam_land_reg_out, aes(x= SuitProtUnman2Man_ratio, y= plot_y, color = year)) +
+					facet_wrap(~region, scales = "free") +
+					geom_point() +
+					labs(title="change in protected land conversion pressure") +
+					xlab("Suitable protected area to managed area ratio") +
+					ylab("Relative change in protected land conversion pressure") +
+					geom_line(aes(SuitProtUnman2Man_ratio, y_exp)) +
+					theme(axis.text.x = element_text(size = 5)) +
+					theme(strip.text = element_text(size = 5)) +
+					scale_x_continuous(breaks=mybreaks(2,0.1))
+		print(p)
+		
+		ggsave(paste0(outdir, "prot_cost_2_area_reg_", out_names[s], "_facet", ".pdf"), plot=p, device="pdf")
+		
 		
         write.csv(gcam_land_reg_out, file=paste0(outdir, "prot_cost_2_area_reg_", out_names[s], ".csv"), row.names=FALSE)
 
-		
-		
+
 		#### write specified year plots to pdf files
 		
 		#### try doing this using ggplot to be consistent with other plots

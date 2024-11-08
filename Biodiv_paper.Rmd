@@ -343,10 +343,10 @@ Profit_rate <- getQuery(GCAM_default, "profit rate") %>%
                mutate(scenario="a) CURRENT reference") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="b) BIODIV reference")) %>%
   bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="c) BIODIV30 reference")) %>%
   bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="d) UNIFORM30 reference")) %>%
-  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="e) CURRENT mitigation")) %>%
-  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="f) BIODIV mitigation")) %>%
-  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="g) BIODIV30 mitigation")) %>%
-  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="h) UNIFORM30 mitigation")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="e) CURRENT LCT")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="f) BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="g) BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="h) UNIFORM30 LCT")) %>%
   filter(grepl("Protected",landleaf))
 
 
@@ -355,10 +355,10 @@ Profit_rate_unmanaged <- getQuery(GCAM_default, "profit rate") %>%
                mutate(scenario="a) CURRENT reference") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="b) BIODIV reference")) %>%
   bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="c) BIODIV30 reference")) %>%
   bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="d) UNIFORM30 reference")) %>%
-  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="e) CURRENT mitigation")) %>%
-  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="f) BIODIV mitigation")) %>%
-  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="g) BIODIV30 mitigation")) %>%
-  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="h) UNIFORM30 mitigation")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="e) CURRENT LCT")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="f) BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="g) BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="h) UNIFORM30 LCT")) %>%
   filter(grepl("Unmanaged|Grassland|Shrubland",landleaf),
          !grepl("Protected|Unsuitable",landleaf)) %>% 
  rename(unmanaged=value) %>% 
@@ -379,8 +379,8 @@ ref_temp = merge(ref_temp, filter(ref_temp, scenario == "a) CURRENT reference") 
 ref_temp$norm_ratio = ref_temp$ratio / ref_temp$ratio_current
 
 mit_temp = filter(increase_in_costs,
-                  scenario == "e) CURRENT mitigation" | scenario == "f) BIODIV mitigation" | scenario == "g) BIODIV30 mitigation" | scenario == "h) UNIFORM30 mitigation")
-mit_temp = merge(mit_temp, filter(mit_temp, scenario == "e) CURRENT mitigation") %>% mutate(ratio_current=ratio, scenario=NULL, value=NULL, unmanaged=NULL, ratio=NULL),
+                  scenario == "e) CURRENT LCT" | scenario == "f) BIODIV LCT" | scenario == "g) BIODIV30 LCT" | scenario == "h) UNIFORM30 LCT")
+mit_temp = merge(mit_temp, filter(mit_temp, scenario == "e) CURRENT LCT") %>% mutate(ratio_current=ratio, scenario=NULL, value=NULL, unmanaged=NULL, ratio=NULL),
                  by=c("Units", "region", "landleaf", "year"))
 mit_temp$norm_ratio = mit_temp$ratio / mit_temp$ratio_current
 
@@ -404,7 +404,7 @@ g <- ggplot(data=increase_in_costs %>% filter(year>=2015), aes(x=year,y=ratio),s
           region=="Africa_Western"), aes(x=year,y=ratio,color="Forests in the Congo basin"),linetype="dashed",linewidth=1.3,show.legend = T)+
      facet_wrap(~scenario,scales="free", nrow=2)+
      ylim(0,3)+
-     ylab("Marginal cost of protection relative to unmanaged land value")
+     ylab("Relative change in protected land conversion pressure")
 
 g+scheme_basic
 
@@ -416,7 +416,7 @@ plot_df = data.frame(ggplot_build(g)[[1]])
 
 # panel ids are the indices of panel_names
 panel_names = c("a) CURRENT reference", "b) BIODIV reference", "c) BIODIV30 reference", "d) UNIFORM30 reference",
-                "e) CURRENT mitigation", "f) BIODIV mitigation", "g) BIODIV30 mitigation", "h) UNIFORM30 mitigation")
+                "e) CURRENT LCT", "f) BIODIV LCT", "g) BIODIV30 LCT", "h) UNIFORM30 LCT")
 # year labels are in column x
 
 plot_df = plot_df[,c("PANEL", "x", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
@@ -435,25 +435,34 @@ write.csv(plot_df,'outputs/csv/marginal_cost_protection_boxplot.csv')
 
 # plot the CURRENT-normalized marginal cost of protection
 
-g <- ggplot(data=increase_in_costs %>% filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation"), aes(x=year,y=norm_ratio),show.legend=F)+
+# need to change the lettering for plotting
+increase_in_costs2 = increase_in_costs
+increase_in_costs2$scenario[increase_in_costs2$scenario == "b) BIODIV reference"] = "a) BIODIV reference"
+increase_in_costs2$scenario[increase_in_costs2$scenario == "c) BIODIV30 reference"] = "b) BIODIV30 reference"
+increase_in_costs2$scenario[increase_in_costs2$scenario == "d) UNIFORM30 reference"] = "c) UNIFORM30 reference"
+increase_in_costs2$scenario[increase_in_costs2$scenario == "f) BIODIV LCT"] = "d) BIODIV LCT"
+increase_in_costs2$scenario[increase_in_costs2$scenario == "g) BIODIV30 LCT"] = "e) BIODIV30 LCT"
+increase_in_costs2$scenario[increase_in_costs2$scenario == "h) UNIFORM30 LCT"] = "f) UNIFORM30 LCT"
+
+g <- ggplot(data=increase_in_costs2 %>% filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT LCT"), aes(x=year,y=norm_ratio),show.legend=F)+
      geom_boxplot(aes(group=paste0(year,scenario)),outlier.shape = NA)+
   
-#     geom_line(data=increase_in_costs %>% 
-#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+#     geom_line(data=increase_in_costs2 %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT LCT",grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
 #          region=="Brazil"), aes(x=year,y=norm_ratio,color="Forests in Amazon basin in Brazil "),linetype="dashed",linewidth=1.3,show.legend = T)+
-#     geom_line(data=increase_in_costs %>% 
-#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedShrubland_AusInt",landleaf),
+#     geom_line(data=increase_in_costs2 %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT LCT",grepl("ProtectedShrubland_AusInt",landleaf),
 #          region=="Australia_NZ"), aes(x=year,y=norm_ratio,color="Shrubland in Australia"),linetype="dashed",linewidth=1.3,show.legend = T)+
-#     geom_line(data=increase_in_costs %>% 
-#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
+#     geom_line(data=increase_in_costs2 %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT LCT",grepl("ProtectedUnmanagedForest_AmazonR",landleaf),
 #          region=="South America_Southern"), aes(x=year,y=norm_ratio,color="Forests in Southern South America"),linetype="dashed",linewidth=1.3,show.legend = T)+
-#     geom_line(data=increase_in_costs %>% 
-#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT mitigation",grepl("ProtectedUnmanagedForest_CongoR",landleaf),
+#     geom_line(data=increase_in_costs2 %>% 
+#          filter(year>2015 & scenario != "a) CURRENT reference" & scenario != "e) CURRENT LCT",grepl("ProtectedUnmanagedForest_CongoR",landleaf),
 #          region=="Africa_Western"), aes(x=year,y=norm_ratio,color="Forests in the Congo basin"),linetype="dashed",linewidth=1.3,show.legend = T)+
   
      facet_wrap(~scenario,scales="free", nrow=2)+
      ylim(0.75,1.5)+
-     ylab("Relative marginal cost of protection normalized to CURRENT")
+     ylab("Relative change in protected land conversion pressure (wrt to CURRENT)")
 
 g+scheme_basic
 
@@ -464,8 +473,8 @@ ggsave( paste0("outputs/images/marginal_cost_protection_norm2current.pdf"),width
 plot_df = data.frame(ggplot_build(g)[[1]])
 
 # panel ids are the indices of panel_names
-panel_names = c("a) CURRENT reference", "b) BIODIV reference", "c) BIODIV30 reference", "d) UNIFORM30 reference",
-                "e) CURRENT mitigation", "f) BIODIV mitigation", "g) BIODIV30 mitigation", "h) UNIFORM30 mitigation")
+panel_names = c("a) CURRENT reference", "a) BIODIV reference", "b) BIODIV30 reference", "c) UNIFORM30 reference",
+                "e) CURRENT LCT", "d) BIODIV LCT", "e) BIODIV30 LCT", "f) UNIFORM30 LCT")
 # year labels are in column x
 
 plot_df = plot_df[,c("PANEL", "x", "ymin_final", "ymin", "lower", "middle", "upper", "ymax", "ymax_final")]
