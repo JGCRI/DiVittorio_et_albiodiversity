@@ -3,18 +3,18 @@
 library(rgcam)library(dplyr)library(tidyr)library(ggplot2)library(viridis)
 
 setwd("./")
-#proj_names = c("outputs/project_files/tables_gcam_defaultNZ.proj", "outputs/project_files/tables_30percnz.proj",
-#				"outputs/project_files/tables_allansce1nz.proj", "outputs/project_files/tables_allansce2nz.proj")
-#out_names = c("current_nz", "uniform30_nz", "biodiv_nz", "biodiv30_nz")
-#
-#outdir = "outputs/land_allocation/"
+proj_names = c("outputs/project_files/tables_gcam_defaultNZ.proj", "outputs/project_files/tables_30percnz.proj",
+				"outputs/project_files/tables_allansce1nz.proj", "outputs/project_files/tables_allansce2nz.proj")
+out_names = c("current_nz", "uniform30_nz", "biodiv_nz", "biodiv30_nz")
+
+outdir = "outputs/land_allocation/"
 
 
-proj_names = c("outputs/project_files/tables_gcam_default.proj", "outputs/project_files/tables_30perc.proj",
-				"outputs/project_files/tables_allansce1.proj", "outputs/project_files/tables_allansce2.proj")
-out_names = c("current", "uniform30", "biodiv", "biodiv30")
+#proj_names = c("outputs/project_files/tables_gcam_default.proj", "outputs/project_files/tables_30perc.proj",
+#				"outputs/project_files/tables_allansce1.proj", "outputs/project_files/tables_allansce2.proj")
+#out_names = c("current", "uniform30", "biodiv", "biodiv30")
 
-outdir = "outputs/land_allocation_ref/"
+#outdir = "outputs/land_allocation_ref/"
 
 # Additional functionshdr_path = "helper_scripts/"# Load all support functions into memorysource( paste0(hdr_path,"diag_header.R"))	# configuration and helper functionssource( paste0(hdr_path,"diag_grapher.R"))  # functions to generate figuressource( paste0(hdr_path,"color_schemes.R" )) # some predefined color schemessource( paste0(hdr_path,"diag_util_functions.R")) # library of useful utility functions
 

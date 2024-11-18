@@ -1,41 +1,55 @@
-[![DOI](https://zenodo.org/badge/265119113.svg)](https://zenodo.org/badge/latestdoi/265119113)
+_your zenodo badge here_
 
-# metarepo
-Template repository for a single point of access meta-repository to reproduce an experiment
+# Di Vittorio et al 2024 Nature Sustainability
 
-## Purpose
-A meta-repository creates a single point of access for someone to find all of the components that were used to create a published work for the purpose of reproducibility.  This repository should contain references to all minted data and software as well as house any ancillary code used to transform the source data, create figures for your publication, conduct the experiment, and / or execute the contributing software.
+##Future land use under spatially explicit land protection and terrestrial carbon scenarios###
 
-## Using the template
-Simply click `Use this template` on the main repository page (shows up to the left of `Clone or download`) and fill in your `Repository name`, the `Description`, select whether you want the repository to be `Public` or `Private`, and leave `Include all branches` unchecked.
+Alan V. Di Vittorio<sup>1\*</sup>, Kanishka B. Narayan<sup>2</sup>,  and Michael I. Westphal<sup>2</sup>
 
-## Naming your meta-repository
-The following naming conventions should be used when naming your repository:  
-- Single author:  `lastname_year_journal`
-- Multi author:  `lastname-etal_year_journal`
-- Multiple publications in the same journal:  `lastname-etal_year-letter_journal` (e.g., `human-etal_2020-b_nature`)
+<sup>1 </sup> Lawrence Berkeley National Laboratory, Berekeley, CA, USA
 
-## Customize your `.gitignore` file
-A general `.gitignore` for use with Python or R development is included.  However, you may wish to customize this to the needs of your project.  The `.gitignore` file lets Git know what to push to the remote repository and what needs to be ignored and stay local.
+<sup>2 </sup> Joint Global Change Research Institute, Pacific Northwest National Laboratory, College Park, MD, USA
 
-## Suggestions
-- Don't bog down your repository with a bunch of raw data.  Instead archive and mint a DOI for your data and provide the reference in this repository with instructions for use.
-- Create complete and tested documentation for how to use what is in this repository to reproduce your experiment.
+\* corresponding author:  avdivittorio@lbl.gov
 
-## Creating a minted release for your meta-repository
-It is important to version and release your meta-repository as well due to changes that may occur during the publication review process.  If you do not know how to conduct a release on GitHub when linked with Zenodo, please contact chris.vernon@pnnl.gov to get set up.  
+## Abstract
+Nearly 200 countries have pledged to conserve 30% of terrestrial ecosystems. Achieving this goal requires scientific input that considers both ecological benefits and impacts to human systems. We use the Global Change Analysis Model (GCAM) to evaluate human system impacts of four land protection cases intersected with two terrestrial carbon cases. Protected land conversion pressure and food prices for spatially heterogeneous cases with 31% and 39% protected land, respectively, are lower than for uniformly distributed 30% protected land. Spatially distributed protection allows more suitable land available for conversion, compared to uniform protection, thus reducing land use conflicts. Valuing terrestrial carbon reduces land conversion pressure; in some places sufficiently to preserve the prescribed protected land amount. Global impacts of land additional protection are small, but regional impacts vary and may be considerable. The results indicate that spatially heterogeneous land protection could have less impact on human systems than uniform protection.
 
-## The meta-repository markdown template
-A sample meta-repository template is provided in this repository in the file `metarepo_template.md`.  
+## Journal reference
+Di Vittorio, A.V., K.B. Narayan, & M.I. Westphal (submitted). Future land use under spatially explicit land protection and terrestrial carbon scenarios. Nature Sustainability. DOI: TBD
 
-To use it, do the following:
-1. Create the template repository as mentioned above in [Using the template](#using-the-template)
-2. Clone your new repository to you local machine
-3. Change directories into your new meta-repository directory you just cloned
-4. Run `git rm README.md` to delete this file (`README.md`) and commit it using `git commit -m 'remove instructions'`
-5. Rename `metarepo_template.md` as `README.md`
-6. Run `git add README.md` to stage the new file that will show up on load in your remote GitHub repository
-7. Run `git rm metarepo_template.md` to remove the original template
-8. Run `git commit -m 'set up new template as readme'` to set the changes
-9. Run `git push` to send the changes to your remote GitHub repository
-10. Modify the `README.md` file to represent your experiement and use the `add`, `commit`, `push` workflow to update your remote repository
+## Supplemental information
+All supplemental materials are included in this metarepo. Paper figures and data are in `paper_figures_data`. Supplemental figures and data are in `supplemental_figures_data`. Supplemental tables are in `supplemental_tables`.
+
+## Model code reference
+This is the code used for the simulations in this study.
+
+| Model | Version | Repository Link |
+|-------|---------|-----------------|
+| GCAM	| 7.0	| <url here> |
+
+## Data reference
+
+### Output data
+Model output data are in `outputs/project_files`. These files contain a subset of the simulation otuputs in a format readily accessible to the rgcam R package. These are the source files for the processing scripts in this metarepo.
+
+## Reproduce the experiment
+
+Maybe just describe this?
+
+1. Download and install GCAM7 from [Model code reference](#Model-code-reference)
+2. Use the protected area input data files in `pre-processing` to run GCAMDATA four times to get GCAM input files. The respective files are: `Allan_sce1_plus_default_separated_GCAM.csv`, `Allan_sce2_plus_default_seoarated_GCAM.csv`, `GCAM_Unavailable_separated_GCAM.csv`, `thirty_percent_plus_default_separated_GCAM.csv`. `pre-processing` also contains an R script that generates the four protected area input data files from source data in `other_data`.
+3. Run GCAM 16 times with the different configuration files; 4 reference, 4 net-zero; then duplicated with the protected area not protected
+
+
+## Reproduce the figures
+There are four diagnostic R scripts at the top level of this metarepo that generate many figures and associated data files. The publication figures were selected from these diagnostics.
+
+The R scripts have been developed using R 4.3.2. Required libraries are loaded at the beginning of each script using the `library()` function and must be installed as needed.
+
+| Script Name | Description | How to Run |
+| --- | --- | --- |
+| `Biodiv_paper.Rmd` | An RStudio script with several chunks for generating diagnostics on: commodity prices, land values, land conversion pressure, land allocation, CO2 prices, and correlations between agricultural production, and price | Open with RStudio or R and execute the code. Outputs are written to `outputs/images` and `outputs/csv` |
+| `land_alloc_agg.r` | An R script to plot global and regional time series and box plots of GCAM aggregated land allocation | Open with R and execute the code. Outputs are written by default to `outputs/land_allocation`, and this can be changed in the script |
+| `proc_gcam_land_distribution_biodiv_temporal.r` | An R script to calculate detailed land allocation statistics, make maps, and perform regressions on land value and area | Open with R and execute the code. Outputs are written by default to `outputs/gcam_land_distribution`, and this can be changed in the script |
+| `GCAM_Biodiv_R_scripts.R` | An R script to plot electricity generation/prices, energy consumption, biomass production, commodity prices, co2 prices, and land allocation | Open with R and execute the code. Outputs are written by default to `outputs/figures_westphal`, and this can be changed in the script |
