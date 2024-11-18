@@ -2,7 +2,7 @@ _your zenodo badge here_
 
 # Di Vittorio et al 2024 Nature Sustainability
 
-##Future land use under spatially explicit land protection and terrestrial carbon scenarios###
+##Future land use under spatially explicit land protection and terrestrial carbon scenarios##
 
 Alan V. Di Vittorio<sup>1\*</sup>, Kanishka B. Narayan<sup>2</sup>,  and Michael I. Westphal<sup>2</sup>
 

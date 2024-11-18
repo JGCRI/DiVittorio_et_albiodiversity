@@ -3,12 +3,15 @@
 library(rgcam)library(dplyr)library(tidyr)library(ggplot2)library(viridis)
 
 setwd("./")
+
+# carbon cases
 proj_names = c("outputs/project_files/tables_gcam_defaultNZ.proj", "outputs/project_files/tables_30percnz.proj",
 				"outputs/project_files/tables_allansce1nz.proj", "outputs/project_files/tables_allansce2nz.proj")
 out_names = c("current_nz", "uniform30_nz", "biodiv_nz", "biodiv30_nz")
 
 outdir = "outputs/land_allocation/"
 
+# reference cases
 
 #proj_names = c("outputs/project_files/tables_gcam_default.proj", "outputs/project_files/tables_30perc.proj",
 #				"outputs/project_files/tables_allansce1.proj", "outputs/project_files/tables_allansce2.proj")
