@@ -1160,7 +1160,7 @@ Protected_Land %>%
            type=ifelse(grepl("Shrub",landleaf),"Shrubland",type))->diff_data
   
 
-g <- ggplot(data=diff_data %>% filter(year==2100), aes(x=scenario,y=(diff),color=type))+
+g <- ggplot(data=diff_data %>% filter(year==2100), aes(x=scenario,y=(diff/tot_land)*100,color=type))+
      geom_boxplot(outlier.shape = NA)+
     ylim(0,5)+
      ylab("Loss of protected area as a % of total land by not imposing protection")
