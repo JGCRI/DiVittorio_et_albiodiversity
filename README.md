@@ -2,7 +2,7 @@ _your zenodo badge here_
 
 # Di Vittorio et al 2024 Nature Sustainability
 
-##Future land use under spatially explicit land protection and terrestrial carbon scenarios
+## Future land use under spatially explicit land protection and terrestrial carbon scenarios
 
 Alan V. Di Vittorio<sup>1\*</sup>, Kanishka B. Narayan<sup>2</sup>,  and Michael I. Westphal<sup>2</sup>
 
@@ -50,6 +50,6 @@ The R scripts have been developed using R 4.3.2. Required libraries are loaded a
 | Script Name | Description | How to Run |
 | --- | --- | --- |
 | `Biodiv_paper.Rmd` | An RStudio script with several chunks for generating diagnostics on: commodity prices, land values, land conversion pressure, land allocation, CO2 prices, and correlations between agricultural production, and price | Open with RStudio or R and execute the code. Outputs are written to `outputs/images` and `outputs/csv` |
-| `land_alloc_agg.r` | An R script to plot global and regional time series and box plots of GCAM aggregated land allocation | Open with R and execute the code. Outputs are written by default to `outputs/land_allocation`, and this can be changed in the script |
+| `land_alloc_aggr.r` | An R script to plot global and regional time series and box plots of GCAM aggregated land allocation | Open with R and execute the code. Outputs are written by default to `outputs/land_allocation`, and this can be changed in the script |
 | `proc_gcam_land_distribution_biodiv_temporal.r` | An R script to calculate detailed land allocation statistics, make maps, and perform regressions on land value and area | Open with R and execute the code. Outputs are written by default to `outputs/gcam_land_distribution`, and this can be changed in the script |
 | `GCAM_Biodiv_R_scripts.R` | An R script to plot electricity generation/prices, energy consumption, biomass production, commodity prices, co2 prices, and land allocation | Open with R and execute the code. Outputs are written by default to `outputs/figures_westphal`, and this can be changed in the script |
