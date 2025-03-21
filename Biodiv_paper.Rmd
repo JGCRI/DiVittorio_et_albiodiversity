@@ -15,6 +15,8 @@ library(ggplot2)
 library(sf)
 library(ggsci)
 library(viridis)
+library(ggsci)
+library(ggpmisc)
 
 print(paste0("Current working directory is - ",getwd()))
 
@@ -1084,6 +1086,149 @@ tot_prot_cost_more = rbind(ref_temp, mit_temp)
 
 ```
 
+#KBN changes here
+#1. Boxplot showing %protected area loss
+```{r}
+
+Protected_Land <- getQuery(GCAM_default, "detailed land allocation") %>%
+  mutate(scenario="1. CURRENT") %>% bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="2. BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="3. BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30 reference")) %>%
+   bind_rows(getQuery(GCAM_defaultNZ, "detailed land allocation") %>%
+  mutate(scenario="5. CURRENT LCT")) %>% bind_rows(getQuery(Allansce1NZ, "detailed land allocation") %>%mutate(scenario="6. BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZ, "detailed land allocation") %>%mutate(scenario="7. BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZ, "detailed land allocation") %>%mutate(scenario="8.  UNIFORM30 LCT"))   %>%  
+  filter(grepl("Protected",landleaf)) %>%  mutate(LT=sub("^[^_]*_", "", landleaf),
+         LT=gsub("_IRR_hi","",LT),
+         LT=gsub("_IRR_lo","",LT),
+         LT=gsub("_RFD_hi","",LT),
+         LT=gsub("_RFD_lo","",LT))
+
+Protected_Land_tot <- getQuery(GCAM_default, "detailed land allocation") %>%
+  mutate(scenario="1. CURRENT") %>% bind_rows(getQuery(Allansce1, "detailed land allocation") %>%mutate(scenario="2. BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "detailed land allocation") %>%mutate(scenario="3. BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30 reference")) %>%
+   bind_rows(getQuery(GCAM_defaultNZ, "detailed land allocation") %>%
+  mutate(scenario="5. CURRENT LCT")) %>% bind_rows(getQuery(Allansce1NZ, "detailed land allocation") %>%mutate(scenario="6. BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZ, "detailed land allocation") %>%mutate(scenario="7. BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZ, "detailed land allocation") %>%mutate(scenario="8.  UNIFORM30 LCT")) %>% 
+filter(grepl("Protected",landleaf)) %>%   
+  mutate(LT=sub("^[^_]*_", "", landleaf),
+         LT=gsub("_IRR_hi","",LT),
+         LT=gsub("_IRR_lo","",LT),
+         LT=gsub("_RFD_hi","",LT),
+         LT=gsub("_RFD_lo","",LT)) %>% 
+ group_by(LT,year) %>% 
+ summarize(tot_land=sum(value)) %>% 
+ select(-year) %>% 
+distinct() %>% 
+group_by(LT) %>% 
+summarize(tot_land=mean(tot_land))    
+
+Protected_Land %>% 
+    left_join(Protected_Land_tot) %>% 
+    mutate(value=value)->Protected_Land
+
+Protected_Land_no_prot <- getQuery(GCAM_defaultnoprot, "detailed land allocation") %>%
+  mutate(scenario="1. CURRENT") %>% bind_rows(getQuery(Allansce1noprot, "detailed land allocation") %>%mutate(scenario="2. BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2noprot, "detailed land allocation") %>%mutate(scenario="3. BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30noprot, "detailed land allocation") %>%mutate(scenario="4. UNIFORM30 reference")) %>%
+   bind_rows(getQuery(GCAM_defaultNZnoprot, "detailed land allocation") %>%
+  mutate(scenario="5. CURRENT LCT")) %>% bind_rows(getQuery(Allansce1NZnoprot, "detailed land allocation") %>%mutate(scenario="6. BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZnoprot, "detailed land allocation") %>%mutate(scenario="7. BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZnoprot, "detailed land allocation") %>%mutate(scenario="8.  UNIFORM30 LCT"))   %>%  
+  filter(grepl("Protected",landleaf)) %>% 
+ rename(no_prot=value) %>%  mutate(LT=sub("^[^_]*_", "", landleaf),
+         LT=gsub("_IRR_hi","",LT),
+         LT=gsub("_IRR_lo","",LT),
+         LT=gsub("_RFD_hi","",LT),
+         LT=gsub("_RFD_lo","",LT))
+
+
+Protected_Land_no_prot %>% 
+    left_join(Protected_Land_tot) %>% 
+    mutate(no_prot=no_prot)->Protected_Land_no_prot
+
+  
+Protected_Land %>% 
+    left_join(Protected_Land_no_prot) %>% 
+    mutate(diff=((no_prot)-(value)),
+           diff=ifelse(diff>0,0,diff)) %>% 
+    filter(value>0) %>% 
+    mutate(diff=diff*-1,
+           type=ifelse(grepl("Forest",landleaf),"Forests","Other"),
+           type=ifelse(grepl("Shrub",landleaf),"Shrubland",type))->diff_data
+  
+
+g <- ggplot(data=diff_data %>% filter(year==2100), aes(x=scenario,y=(diff/tot_land)*100,color=type))+
+     geom_boxplot(outlier.shape = NA)+
+    ylim(0,5)+
+     ylab("Loss of protected area as a % of total land by not imposing protection")
+
+g+scheme_basic
+
+```
+
+
+#2. Generate profit rates
+```{r}
+Profit_rate <- getQuery(GCAM_default, "profit rate") %>%
+               mutate(scenario="1. CURRENT") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. CURRENT LCT")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30 LCT")) %>%
+  filter(grepl("Protected",landleaf))
+
+
+
+Profit_rate_unmanaged <- getQuery(GCAM_default, "profit rate") %>%
+               mutate(scenario="1. CURRENT") %>% bind_rows(getQuery(Allansce1, "profit rate") %>%mutate(scenario="2. BIODIV reference")) %>%
+  bind_rows(getQuery(Allansce2, "profit rate") %>%mutate(scenario="3. BIODIV30 reference")) %>%
+  bind_rows(getQuery(perc30, "profit rate") %>%mutate(scenario="4. UNIFORM30 reference")) %>%
+  bind_rows(getQuery(GCAM_defaultNZ, "profit rate") %>%mutate(scenario="5. CURRENT LCT")) %>%
+  bind_rows(getQuery(Allansce1NZ, "profit rate") %>%mutate(scenario="6. BIODIV LCT")) %>%
+  bind_rows(getQuery(Allansce2NZ, "profit rate") %>%mutate(scenario="7. BIODIV30 LCT")) %>%
+  bind_rows(getQuery(perc30NZ, "profit rate") %>%mutate(scenario="8.  UNIFORM30 LCT")) %>%
+  filter(grepl("Unmanaged|Grassland|Shrubland",landleaf),
+         !grepl("Protected|Unsuitable",landleaf)) %>% 
+ rename(unmanaged=value) %>% 
+ mutate(landleaf=paste0("Protected",landleaf))    
+ 
+ Profit_rate %>% 
+     left_join(Profit_rate_unmanaged) %>% 
+      mutate(ratio=value/unmanaged)->increase_in_costs
+ 
+ 
+write.csv(increase_in_costs, "outputs/csv/Fig4B_Protected_area_profitrates.csv")
+```
+
+
+#3. Generate scatterplot with r squared and p values
+```{r}
+#diff_data <- read.csv("C:/Projects/ambrosia_test/ambrosia/diff_data.csv")
+
+Profit_rates <- read.csv("outputs/csv/Fig4B_Protected_area_profitrates.csv") %>%
+    select(-value,-Units) %>% 
+    left_join(diff_data)
+
+g <- ggplot(data=Profit_rates %>% filter(year==2100) %>% na.omit(),aes(x=ratio,y=(diff/tot_land)*100,color=type)) + 
+     geom_point()+
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    #stat_cor(aes(label = ..rr.label..), label.x = 3, label.y = 30,color="blue") + 
+    stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+               label.x = 3, label.y = 25,
+               formula = y ~ x, parse = TRUE,color="blue") +# Adds the p-value
+     facet_wrap(~scenario,scales="free")+
+     xlim(0,NA)+
+     ylab(" Loss of protected area as a % of total land by not imposing protection")+
+     xlab("Relative change in protected land conversion pressure")+
+     scale_color_npg()
+
+g+scheme_basic
+```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
