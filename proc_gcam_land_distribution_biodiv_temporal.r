@@ -22,6 +22,9 @@
 #    this means that the unmanaged land areas and values are correct even for the managed land records
 #    note that there may be some land units or regions where there is only managed land or only unmanaged land
 
+# note that the plotting functions for the maps don't work when running this as a function
+# so set the arguments as variables in the console and run the code directly (don't run the function)
+
 # make sure that this scripts directory is the working directory
 setwd("./")
 
@@ -654,7 +657,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			geom_point() +
 			labs(title=paste("all land units"), subtitle=pstitle) +
 			xlab("Suitable protected area to managed area ratio") +
-			ylab("Relative change in protected land conversion pressure") +
+			ylab("Relative protected land conversion pressure") +
 			geom_line(aes(SuitProtUnman2Man_ratio, y_exp))
 		print(p)
 		
@@ -689,7 +692,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   cat(" nls_error=", nls_error)
 			   
 			   py = t$prot_cost_norm
-			   pylab = "Relative change in protected land conversion pressure"
+			   pylab = "Relative protected land conversion pressure"
 			   
 			   if(!nls_error) {
 			      t$y_exp = predict(fit, list(SuitProtUnman2Man_ratio = t$SuitProtUnman2Man_ratio))
@@ -825,7 +828,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 			   cat(" nls_error=", nls_error)
 			   
 			   py = t$prot_cost_norm
-			   pylab = "Relative change in protected land conversion pressure"
+			   pylab = "Relative protected land conversion pressure"
 			   
 			   if(!nls_error) {
 			      t$y_exp = predict(fit, list(SuitProtUnman2Man_ratio = t$SuitProtUnman2Man_ratio))
@@ -930,7 +933,7 @@ proc_gcam_land_distribution <- function(	proj_names = c("outputs/project_files/t
 					geom_point() +
 					labs(title="change in protected land conversion pressure") +
 					xlab("Suitable protected area to managed area ratio") +
-					ylab("Relative change in protected land conversion pressure") +
+					ylab("Relative protected land conversion pressure") +
 					geom_line(aes(SuitProtUnman2Man_ratio, y_exp)) +
 					theme(axis.text.x = element_text(size = 5)) +
 					theme(strip.text = element_text(size = 5)) +
