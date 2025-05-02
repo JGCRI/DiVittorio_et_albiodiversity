@@ -38,7 +38,7 @@ These data were pre-processed to generate protection-case-specific protected are
 
 ### Simulations
 
-GCAM was configured for 16 different simulations
+GCAM was configured for 16 different simulations. Eight simulations had no climate change mitigation (reference), and eight climate change mitigation simulations included net-zero greenhouse gas emissions targets for all regions by 2070 (dates varied by region). Each set of eight simulations was further split by either ensuring that protected area was not converted to human use (four simulations), or allowing protected area to be converted (four simulations). Each set of four simulations included the four protection cases (CURRENT, UNIFORM30, BIODIV30, and BIODIV).
 
 ## Experiment Data
 
