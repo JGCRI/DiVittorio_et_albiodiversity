@@ -106,6 +106,7 @@ g <- ggplot(data=crop_marginal_cost %>% filter(year %in% c(2030,2050,2075,2100),
 g+scheme_basic
 
 ggsave( paste0("outputs/images/",'1. Crop_prices','.png'),width = 10.5, height = 10)
+ggsave( paste0("outputs/images/",'1. Crop_prices','.pdf'),width = 10.5, height = 10)
 
 # write these boxplot stats to a file - format it for easier access
 # colour is the scenario, PANEL is the year, group denotes the scenario and commodity
