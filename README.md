@@ -57,4 +57,5 @@ The R scripts have been developed using R 4.3.2. Required libraries are loaded a
 | `GCAM_Biodiv_R_scripts.R` | An R script to plot electricity generation/prices, energy consumption, biomass production, commodity prices, co2 prices, and land allocation | Open with R and execute the code. Outputs are written by default to `outputs/figures_westphal`, and this can be changed in the script |
 | `land_alloc_aggr.r` | An R script to plot global and regional time series and box plots of GCAM aggregated land allocation | Open with R and execute the code. Outputs are written by default to `outputs/land_allocation`, and this can be changed in the script |
 | `proc_gcam_land_distribution_biodiv_temporal.r` | An R script to calculate detailed land allocation statistics, make maps, and perform regressions on land value and area | Open with R and execute the code. Outputs are written by default to `outputs/gcam_land_distribution`, and this can be changed in the script |
+| `land_unit_tradeoffs.r` | An R script to assess the variability in land allocation across low carbon transition scenarios, so it can be related to sensitive biodiversity areas |
 
